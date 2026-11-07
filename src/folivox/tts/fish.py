@@ -24,6 +24,7 @@ from folivox import memory
 from folivox.tts import builds, fish_setup, licences
 from folivox.tts.base import SynthTimeout, TTSEngine, synth_timeout
 from folivox.tts.voice import Voice
+from folivox.voicegen.cloud_apis import FishAudio
 
 WORKER = Path(__file__).with_name("fish_worker.py")
 LOAD_TIMEOUT = 900.0  # reading 20+ GB of weights and the kernel warm-up
@@ -128,7 +129,9 @@ class FishEngine(TTSEngine):
 
     name = ""
     device = "mlx"
-    languages = ("ru", "en", "zh", "ja", "ko", "de", "es", "fr", "it")
+    # S2 Pro and Drama 3 read the same 80+ languages as the Fish Audio API; the nine with Folivox rules get
+    # numbers and dates expanded, the others go to the model almost as they are
+    languages = FishAudio.languages
     sample_rate = 44100
 
     def __init__(self, build: str | None = None, device: str = "auto", runtime: str | None = None,
@@ -192,7 +195,10 @@ class FishEngine(TTSEngine):
         t0 = time.time()
         try:
             device = native_setup.choose_device(server, backend, config.native_options().get("device"))
-            self._server = native.acquire(native.Spec(server, gguf, backend, family=family, device=device))
+            opts = native_setup.drama3_options(gguf, backend, device, config.native_options().get(
+                "drama3_cpu_expert_layers")) if family == "fish_drama3" else ()
+            self._server = native.acquire(native.Spec(server, gguf, backend, family=family, device=device,
+                                                      options=opts))
         except native_setup.NativeError as e:
             raise FishError(str(e)) from e
         self.load_seconds = time.time() - t0

@@ -195,6 +195,7 @@ class Hardware:
     arch: str  # arm64 | x86_64 …
     total_gb: float | None
     available_gb: float | None
+    gpu_gb: float | None = None  # memory of the NVIDIA card (GiB) the native builds run on; None = none or unknown
 
     @property
     def platform_tag(self) -> str:
@@ -207,7 +208,12 @@ def detect_hardware() -> Hardware:
     system = {"darwin": "darwin", "win32": "windows"}.get(sys.platform, "linux")
     arch = platform.machine().lower()
     arch = "arm64" if arch in ("arm64", "aarch64") else "x86_64" if arch in ("amd64", "x86_64") else arch
-    return Hardware(system, arch, diag.ram_gb(), memory.available_gb())
+    gpu = None
+    if system != "darwin":  # Apple GPUs share the system memory
+        from folivox.tts import native_setup
+
+        gpu = native_setup.nvidia_memory_gb()
+    return Hardware(system, arch, diag.ram_gb(), memory.available_gb(), gpu)
 
 
 def supported_here(b: Build, hw: Hardware, cat: Catalog | None = None) -> bool:
@@ -226,6 +232,8 @@ def fit(b: Build, hw: Hardware) -> Fit:
     ``tight`` when the free memory right now is below the measured peak."""
     if hw.platform_tag not in b.platforms:
         return Fit("no", f"{b.title} runs on {', '.join(b.platforms)}, not on {hw.platform_tag}.")
+    if b.backend == "native" and hw.gpu_gb:  # the model sits in the card's own memory, not in the system's
+        return _gpu_fit(b, hw)
     if hw.total_gb is not None and hw.total_gb < b.min_total_gb:
         return Fit("no", f"{b.title} needs a computer with at least {b.min_total_gb:.0f} GB of memory "
                          f"(this one has {hw.total_gb:.0f} GB).")
@@ -233,6 +241,27 @@ def fit(b: Build, hw: Hardware) -> Fit:
         return Fit("tight", f"{b.title} needs up to {b.peak_gb:.0f} GB while it works and only "
                             f"{hw.available_gb:.0f} GB is free now: close other heavy "
                             "applications, otherwise the computer starts swapping and the render crawls or stalls.")
+    return Fit("ok", "")
+
+
+def _gpu_fit(b: Build, hw: Hardware) -> Fit:
+    """A native build on an NVIDIA card. Drama 3 keeps the expert layers that do not fit on the CPU (slower, and
+    they take system memory); the other models must fit the card."""
+    gpu = hw.gpu_gb or 0.0
+    if b.kind == "drama3":
+        from folivox.tts import native_setup
+
+        cpu_layers = native_setup.drama3_cpu_expert_layers(b.weights_gb, gpu) or 0
+        on_cpu = b.weights_gb * native_setup.DRAMA3_EXPERT_SHARE * cpu_layers / 40
+        if hw.total_gb is not None and hw.total_gb < on_cpu + 4:
+            return Fit("no", f"{b.title} would keep {cpu_layers} of its 40 expert layers ({on_cpu:.0f} GB) in system "
+                             f"memory next to the {gpu:.0f} GB GPU, and this computer has {hw.total_gb:.0f} GB.")
+        if cpu_layers:
+            return Fit("tight", f"{b.title} is larger than the {gpu:.0f} GB GPU: {cpu_layers} of its 40 expert layers "
+                                f"({on_cpu:.0f} GB) run on the CPU, which is slower.")
+        return Fit("ok", "")
+    if b.peak_gb > gpu:  # the peak (weights, context, activations) is what has to fit on the card
+        return Fit("no", f"{b.title} needs up to {b.peak_gb:.0f} GB of GPU memory and the card has {gpu:.0f} GB.")
     return Fit("ok", "")
 
 

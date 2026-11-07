@@ -59,6 +59,7 @@ and archives are unpacked only into `<data folder>/native/` (paths and links tha
 | Windows x64, NVIDIA (driver 580+, RTX 20 and newer) | `cuda13.3` + its `cudart` archive | 0.85 GB | **not tested** |
 | Windows x64, NVIDIA, older driver | `cuda12.4` + `cudart` | 1.07 GB | **not tested** |
 | Windows x64, any GPU with Vulkan 1.1 (AMD, Intel, NVIDIA) | `vulkan` | 63 MB | **not tested** |
+| Linux x64, NVIDIA (RTX 20 and newer), also in Docker | `ubuntu-x64-cuda12.8` + `cudart` | 1.0 GB | **not tested** |
 | Linux x64, Vulkan | `ubuntu-x64-vulkan-portable` | 74 MB | **not tested** (the plain build was dropped: it crashes with an illegal instruction on a Ryzen 9 5900HX, no AVX-512) |
 
 Model (Hugging Face `audio-cpp/audio.cpp-gguf`, pinned revision, Apache-2.0 weights): `cosyvoice3-q8_0.gguf`
@@ -66,8 +67,9 @@ Model (Hugging Face `audio-cpp/audio.cpp-gguf`, pinned revision, Apache-2.0 weig
 `weight_type` (default `f16`) while loading, so the Q8 file means "fp16 of Q8-rounded weights" and the F32 file is the
 cleaner source; which one sounds better is part of the quality check below.
 
-Not offered automatically: Linux with CUDA (upstream publishes only a Colab-oriented build; use your own build, below),
-AMD HIP on Windows (community builds in a fork; not pinned by Folivox), Intel Macs.
+Linux with CUDA uses the upstream build made for Colab: CUDA 12.8, kernels for compute capability 7.5 to 9.0
+(RTX 20 to 40 series, A100, H100), no CPU-specific instructions. RTX 50 cards are not in it; they get the Vulkan build.
+Not offered automatically: AMD HIP on Windows (community builds in a fork; not pinned by Folivox), Intel Macs.
 
 **Your own build.** `FOLIVOX_NATIVE_SERVER=/path/to/audiocpp_server` and `FOLIVOX_NATIVE_MODEL=/path/to/cosyvoice3.gguf`
 are used instead of the installed files (a CUDA or HIP build from source, for example); `folivox runtime` shows them.
@@ -92,10 +94,12 @@ container there; use the default PyTorch engine, which does use CUDA.
 `folivox runtime build-help [macos|linux-cuda|linux-vulkan|windows-cuda|windows-vulkan|amd-hip]` prints this from the
 catalog (`src/folivox/tts/native_catalog.json`, section `sources`):
 
-* engine: <https://github.com/0xShug0/audio.cpp> (release `v0.9.2`, Apache-2.0); prebuilt archives are listed above
+* engine: <https://github.com/0xShug0/audio.cpp> (release `v0.9.4`, Apache-2.0); prebuilt archives are listed above
 * models: <https://huggingface.co/audio-cpp/audio.cpp-gguf> (CosyVoice 3, Fish S2 Pro); every model keeps its own licence
-* Drama 3: merged into audio.cpp `main` on 2026-10-16, after the last release, so there are no release binaries yet;
-  weights are in `Jmica/Drama-3-GGUF` (pinned commit and sha256 in the catalog). The earlier home of the port,
+* Drama 3: in the release binaries since v0.9.4; weights are in `Jmica/Drama-3-GGUF` (the V2 checkpoint, pinned
+  commit and sha256 in the catalog). On an NVIDIA card smaller than the file, Folivox keeps part of the 40 expert
+  layers on the CPU (`fish_drama3.cpu_expert_layers`, estimated from the card's memory; override with
+  `drama3_cpu_expert_layers` under `[runtime.native]` or `FOLIVOX_DRAMA3_CPU_EXPERT_LAYERS`). The earlier home of the port,
   `JarodMica/audio.cpp` branch `drama-3-native`, is kept in the catalog as a fallback.
 * build recipes for macOS (Metal), Linux (CUDA, Vulkan), Windows (CUDA, Vulkan) and AMD (community HIP packages) are
   data in the catalog and are the steps the upstream documentation gives; only the macOS one is automated.
@@ -131,7 +135,7 @@ numbers.
 `--runtime native` also selects the native GGUF builds of the Fish engines (`s2pro-native-q8`, `s2pro-native-bf16`;
 see [Fish Audio engines](fish-engines.md#native-builds-audiocpp-any-platform-experimental)). Measured once on the M3 Pro (see the Fish page): S2 Pro Q8 RTF 2.52 and bf16 RTF 4.03, QA scores 0.004 and
 0.002; both slower than the MLX builds there. Without the switch
-Fish keeps using its MLX builds on Apple Silicon. S2 Pro uses the stock audio.cpp release. Drama 3 is in the audio.cpp source but not in a release yet, so Folivox offers no native Drama 3 build until one exists.
+Fish keeps using its MLX builds on Apple Silicon. S2 Pro and Drama 3 (`drama3-native-q2`, `drama3-native-q3`) use the stock audio.cpp release (Drama 3 since v0.9.4).
 
 ## Licences
 

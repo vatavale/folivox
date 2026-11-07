@@ -188,7 +188,7 @@ Prices, limits and terms of all five engines: [docs/cloud-engines.md](docs/cloud
 
 - **Many formats in.** FB2 (also `.fb2.zip`), EPUB, DOCX, PDF (text layer, no OCR) and TXT. Chapters, nested sections, poems and epigraphs are kept; PDF headers, footers and page numbers are removed and hyphenation is undone.
 - **Fish Audio Drama 3.** Directed in plain words (`[calm, warm narration]`), 80+ languages, several speakers in one scene. Runs locally on a Mac with enough memory; an online variant with your key is optional. [Details](docs/fish-engines.md).
-- **9 languages with full rules, 80+ with Drama 3.** Russian, English, German, French, Spanish, Italian, Chinese, Japanese, Korean get their own text rules. Any other language Fish Audio Drama 3 reads, also locally (84 in all, e.g. Polish, Portuguese, Arabic, Hindi, Thai), works too. Detected from the book's text; `--lang` overrides it. Books with passages in other languages are read fragment by fragment in the right language.
+- **10 languages with full rules, 80+ with Drama 3.** Russian, English, German, French, Spanish, Italian, Chinese, Japanese, Korean and Dutch get their own text rules (CosyVoice reads the first nine; Dutch needs a Fish or online engine). Any other language Fish Audio Drama 3 reads, also locally (84 in all, e.g. Polish, Portuguese, Arabic, Hindi, Thai), works too. Detected from the book's text; `--lang` overrides it. Books with passages in other languages are read fragment by fragment in the right language.
 - **Text prepared for speech.** Numbers, dates, times, money, units, roman numerals and abbreviations read in full, with case and gender agreement where the language has it (Russian cases, Spanish `veintiuna`, French `une`, German `eine`, Korean native counters, Chinese `两`); sentences split and packed into fragments; dialogue pauses. [Per-language table](docs/how-it-works.md#what-the-normaliser-reads-out-per-language).
 - **Stress, `ё` and your own pronunciations.** For Russian, `ё` is restored automatically with ruaccent, and full stress marks are available (`--stress all`, experimental). Names and invented words: a plain-text dictionary next to the book (`Kvothe = Quothe`), also editable in the studio. [Details](docs/pronunciation.md).
 - **Quality control.** Every fragment is listened back with Whisper. If it does not match the text it is read again, and the best take is kept (`--takes`, default 3).
@@ -224,7 +224,7 @@ Prices, limits and terms of all five engines: [docs/cloud-engines.md](docs/cloud
 - **Free for real.** The local engine has no limits and no bill; online engines are an option, not a requirement.
 - **A workhorse for long books.** Resumable, crash-safe, quality-checked, with a time forecast: start a
   ten-hour book and walk away.
-- **Speaks every book's language properly.** A text normaliser for each of the 9 languages reads numbers,
+- **Speaks every book's language properly.** A text normaliser for each of the 10 languages with rules reads numbers,
   dates, money, units and roman numerals the way a narrator would, with gender and case agreement.
 - **Simple outside, deep inside.** A few clicks in the studio; every option is still there in the CLI.
 - **Any voice, consistent to the last page.** Yours, a bundled one, or one designed for the book.

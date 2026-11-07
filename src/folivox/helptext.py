@@ -100,8 +100,13 @@ Environment: FOLIVOX_VOICE, FOLIVOX_VOICE_TEXT, FOLIVOX_MODEL_DIR, FOLIVOX_TTS, 
 FOLIVOX_VOICEGEN, FOLIVOX_LLM, FOLIVOX_CONFIG.
 Precedence: command line > environment > config file > built-in default."""),
     "languages": ("Supported languages", """\
-Russian, English, German, French, Spanish, Italian, Chinese, Japanese, Korean
-(codes: ru en de fr es it zh ja ko).
+Rules for numbers, dates and abbreviations: Russian, English, German, French, Spanish, Italian,
+Chinese, Japanese, Korean (codes: ru en de fr es it zh ja ko). CosyVoice reads only these.
+
+Fish engines (fish-s2, fish-drama3, local or online) and the other online engines also read many more
+languages. Dutch (nl) has its own rules too (numbers, dates, money, units, abbreviations); for the others,
+Portuguese (pt) and Polish (pl) among them, the text goes to the model almost as it is and the model reads
+numbers and abbreviations by itself. Set the language with [cyan]--lang[/].
 
 The language comes from the book metadata (FB2/EPUB/DOCX) or is detected from the text and
 titles; [cyan]--lang[/] overrides it. [cyan]folivox inspect[/] shows what was detected.

@@ -60,6 +60,8 @@ def test_catalog_is_pinned():
     ("win32-x64", (591, 6.1), "windows-x64-vulkan"),  # Pascal: older than the CUDA builds support
     ("win32-x64", None, "windows-x64-vulkan"),
     ("linux-x64", None, "ubuntu-x64-vulkan-portable"),
+    ("linux-x64", (595, 8.6), "ubuntu-x64-cuda12.8"),  # also in Docker, where NVIDIA Vulkan often fails (#8)
+    ("linux-x64", (595, 6.1), "ubuntu-x64-vulkan-portable"),
     ("darwin-x64", None, None),
 ])
 def test_build_choice(tag, gpu, expect):
@@ -370,7 +372,7 @@ def test_native_fish_builds_are_in_the_catalog():
 
     cat = builds.load()
     nat = [b for b in cat.builds if b.backend == "native"]
-    assert {b.id for b in nat} == {"s2pro-native-q8", "s2pro-native-bf16"}  # Drama 3 native: after an audio.cpp release
+    assert {b.id for b in nat} == {"s2pro-native-q8", "s2pro-native-bf16", "drama3-native-q2", "drama3-native-q3"}
     for b in nat:
         assert b.status == "untested" and b.files[0]["path"].endswith(".gguf") and len(b.files[0]["sha256"]) == 64
         assert b.size_bytes == b.files[0]["size"] and set(b.platforms) >= {"darwin-arm64", "windows-x86_64"}
@@ -385,8 +387,7 @@ def test_build_choice_native_only_when_asked():
     mac = builds.Hardware("darwin", "arm64", 64.0, 50.0)
     assert builds.build_for("fish-s2", None, mac).backend == "mlx"  # the default stays MLX
     assert builds.build_for("fish-s2", None, mac, runtime="native").id == "s2pro-native-q8"
-    with pytest.raises(builds.CatalogError):  # no native Drama 3 build is offered until audio.cpp releases it
-        builds.build_for("fish-drama3", None, mac, runtime="native")
+    assert builds.build_for("fish-drama3", None, mac, runtime="native").id.startswith("drama3-native-")
     assert builds.build_for("fish-s2", None, win, runtime="native").id == "s2pro-native-q8"
     with pytest.raises(builds.CatalogError):  # nothing tested for Windows without the native runtime
         builds.build_for("fish-s2", None, win)
@@ -476,7 +477,7 @@ def test_bench_report_is_shareable_and_private():
     from folivox import bench
 
     rows = [{"device": "native", "actual": "native:metal", "rtf": 0.6, "chars_per_s": 20.0, "load_s": 14,
-             "warmup_s": 5, "runtime": "audio.cpp (native)", "detail": "v0.9.2-macos-arm64-metal, backend metal",
+             "warmup_s": 5, "runtime": "audio.cpp (native)", "detail": "v0.9.4-macos-arm64-metal, backend metal",
              "audio_s": 33.0, "synth_s": 19.8, "chars": 440, "ram_peak_gb": 2.5, "ram_where": "engine process",
              "gpu_card_peak_gb": 3.2},
             {"device": "cuda", "error": "no kernel image"}]
@@ -598,3 +599,48 @@ def test_bench_header_names_the_nvidia_card_without_pytorch(monkeypatch):
     monkeypatch.setattr(bench, "nvidia_cards", lambda: "NVIDIA GeForce RTX 3070 8.0 GB, driver 561.09")
     text = bench.report_text([{"device": "cpu", "error": "x"}], "cosyvoice3", "en")
     assert "GPU: NVIDIA GeForce RTX 3070 8.0 GB, driver 561.09" in text
+
+
+def test_server_env_puts_bundled_cuda_libraries_first(tmp_path, monkeypatch):
+    monkeypatch.setattr(ns.sys, "platform", "linux")
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "lib" / "libcudart.so.12").write_bytes(b"")
+    env = ns.server_env(tmp_path / "audiocpp_server", base={"LD_LIBRARY_PATH": "/opt/x"})
+    parts = env["LD_LIBRARY_PATH"].split(":")
+    assert parts[0] == str(tmp_path / "lib") and parts[-1] == "/opt/x"
+    monkeypatch.setattr(ns.sys, "platform", "win32")
+    assert "LD_LIBRARY_PATH" not in ns.server_env(tmp_path / "audiocpp_server", base={})
+
+
+@pytest.mark.parametrize("model_gb,gpu_gb,expect", [
+    (15.88, 16.0, 9),  # Q2 (GiB) on a 16 GB card: upstream starts at 8
+    (18.93, 16.0, 15),  # Q3: 12 upstream
+    (15.88, 12.0, 21),  # RTX 3060 12 GB (#8)
+    (15.88, 24.0, 0),
+    (15.88, None, None),
+])
+def test_drama3_cpu_expert_layers(model_gb, gpu_gb, expect):
+    assert ns.drama3_cpu_expert_layers(model_gb, gpu_gb) == expect
+
+
+def test_drama3_options_follow_setting(tmp_path, monkeypatch):
+    monkeypatch.delenv("FOLIVOX_DRAMA3_CPU_EXPERT_LAYERS", raising=False)
+    gguf = tmp_path / "d.gguf"
+    gguf.write_bytes(b"")
+    assert ns.drama3_options(gguf, "metal", None) == ()
+    assert ns.drama3_options(gguf, "metal", None, configured=6) == (("fish_drama3.cpu_expert_layers", 6),)
+    monkeypatch.setenv("FOLIVOX_DRAMA3_CPU_EXPERT_LAYERS", "12")
+    assert ns.drama3_options(gguf, "cuda", 0) == (("fish_drama3.cpu_expert_layers", 12),)
+
+
+def test_native_fit_uses_gpu_memory():
+    """#8: on an NVIDIA card the native builds are judged by its memory, not by the system's."""
+    from folivox.tts import builds
+
+    cat = builds.load()
+    rtx3060 = builds.Hardware("linux", "x86_64", 42.0, 38.0, 12.0)
+    assert builds.fit(cat.build("s2pro-native-q8"), rtx3060).level == "ok"
+    assert builds.fit(cat.build("s2pro-native-bf16"), rtx3060).level == "no"
+    d = builds.fit(cat.build("drama3-native-q2"), rtx3060)
+    assert d.level == "tight" and "expert layers" in d.message
+    assert builds.fit(cat.build("drama3-native-q2"), builds.Hardware("linux", "x86_64", 16.0, 14.0, 4.0)).level == "no"

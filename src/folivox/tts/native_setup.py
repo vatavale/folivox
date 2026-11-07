@@ -104,12 +104,15 @@ def sources() -> dict:
 
 
 def own_server_for(family: str | None) -> Path | None:
-    """A server you built yourself or that Folivox built from a pinned fork, for the families a release lacks."""
+    """A server you built yourself or that Folivox built from a pinned commit (``folivox runtime build drama3``).
+    Releases carry Drama 3 since v0.9.4, so an installed release wins over an older own build."""
     if family != "fish_drama3":
         return None
     env = os.environ.get(SERVER_ENV)
     if env and Path(env).expanduser().is_file():
         return Path(env).expanduser()
+    if installed_binary() is not None:
+        return None
     from folivox.tts import native_build
 
     return native_build.own_server("drama3")
@@ -194,7 +197,7 @@ def pick_binary(backend: str = "auto", tag: str | None = None, nvidia=nvidia_inf
     if gpu and gpu[1] >= 7.5:
         new = [b for b in by_backend["cuda"] if "13" in b.id]
         old = [b for b in by_backend["cuda"] if "12" in b.id]
-        return (new if gpu[0] >= 580 else old or new)[0]
+        return (new if gpu[0] >= 580 and new else old or new)[0]
     return by_backend["vulkan"][0] if "vulkan" in by_backend else None
 
 
@@ -224,6 +227,66 @@ def installed_binary(backend: str = "auto") -> tuple[Binary, Path] | None:
     return None
 
 
+def server_env(server: Path, base: dict | None = None) -> dict[str, str]:
+    """Environment for running ``server``. On Linux the CUDA build looks for libcudart, cuBLAS, cuFFT and NCCL
+    in /usr/local/cuda; the copies from the release's cudart archive are unpacked next to it, so their folders go
+    first on LD_LIBRARY_PATH (Windows finds DLLs next to the executable by itself)."""
+    env = dict(os.environ if base is None else base)
+    if not sys.platform.startswith("linux"):
+        return env
+    root_dir = Path(server).parent
+    dirs = sorted({str(f.parent) for f in root_dir.rglob("*.so*") if f.is_file() or f.is_symlink()})
+    # NCCL is not in the cudart archive; PyTorch's CUDA wheels bring it (nvidia-nccl-cu12), as in the Docker image
+    for site in sys.path:
+        if site.endswith("site-packages"):
+            dirs += sorted(str(d) for d in (Path(site) / "nvidia").glob("*/lib") if d.is_dir())
+    if dirs:
+        env["LD_LIBRARY_PATH"] = os.pathsep.join([*dirs, *filter(None, [env.get("LD_LIBRARY_PATH")])])
+    return env
+
+
+def nvidia_memory_gb(index: int | None = None) -> float | None:
+    """Total memory of an NVIDIA GPU (the first one, or ``index``) from nvidia-smi, in GiB; None if unknown."""
+    try:
+        r = subprocess.run(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],  # noqa: S603, S607
+                           capture_output=True, text=True, timeout=15)
+        rows = [float(x) for x in r.stdout.split()] if r.returncode == 0 else []
+        return rows[index or 0] / 1024 if len(rows) > (index or 0) else None
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+DRAMA3_EXPERT_SHARE = 0.85  # part of a Drama 3 GGUF that is routed experts, spread over its 40 layers
+DRAMA3_OVERHEAD_GB = 3.0  # GiB: context, activations, codec and the CUDA runtime on the GPU
+
+
+def drama3_cpu_expert_layers(model_gb: float, gpu_gb: float | None) -> int | None:  # sizes in GiB
+    """How many of Drama 3's 40 expert layers to keep on the CPU so the rest fits the GPU; None = engine default.
+
+    Matches the upstream starting points within a layer or two (16 GB card: 8 for Q2, 12 for Q3)."""
+    if not gpu_gb:
+        return None
+    per_layer = model_gb * DRAMA3_EXPERT_SHARE / 40
+    need = model_gb + DRAMA3_OVERHEAD_GB - gpu_gb
+    return int(max(0, min(40, -(-need // per_layer)))) if need > 0 else 0
+
+
+def drama3_options(model: Path, backend: str, device: int | None, configured=None) -> tuple:
+    """Session options for Drama 3: ``cpu_expert_layers`` from config/env, else from the NVIDIA card's memory."""
+    value = os.environ.get("FOLIVOX_DRAMA3_CPU_EXPERT_LAYERS") or configured
+    if value in (None, "", "auto"):
+        if backend != "cuda":
+            return ()  # Metal shares memory with the CPU; for Vulkan the card's memory is not known here
+        try:
+            size = model.stat().st_size / 2**30
+        except OSError:
+            return ()
+        value = drama3_cpu_expert_layers(size, nvidia_memory_gb(device))
+        if value is None:
+            return ()
+    return (("fish_drama3.cpu_expert_layers", int(value)),)
+
+
 def server_path(backend: str = "auto") -> Path | None:
     env = os.environ.get(SERVER_ENV)
     if env:
@@ -236,7 +299,7 @@ def server_path(backend: str = "auto") -> Path | None:
 def server_backend(backend: str = "auto") -> str:
     """Backend name passed to the server (metal, cuda, vulkan, cpu)."""
     if backend not in ("", "auto"):
-        return {"cuda12.4": "cuda", "cuda13.3": "cuda"}.get(backend, backend)
+        return {"cuda12.4": "cuda", "cuda12.8": "cuda", "cuda13.3": "cuda"}.get(backend, backend)
     found = installed_binary()
     if found:
         return found[0].backend
@@ -265,7 +328,7 @@ def list_devices(server: Path, backend: str, run=subprocess.run) -> list[Device]
     """
     try:
         r = run([str(server), "--backend", backend, "--list-devices"], capture_output=True, text=True,
-                timeout=60, cwd=str(Path(server).parent))  # noqa: S603
+                timeout=60, cwd=str(Path(server).parent), env=server_env(server))  # noqa: S603
     except (OSError, subprocess.SubprocessError):
         return None
     if r.returncode < 0 or r.returncode >= 128:  # killed by a signal or a Windows crash code
@@ -563,7 +626,7 @@ def install(p: Plan, progress: Progress | None = None, log: Callable[[str], None
 def version_text(server: Path) -> str:
     try:
         r = subprocess.run([str(server), "--version"], capture_output=True, text=True, timeout=60,  # noqa: S603
-                           cwd=str(server.parent))
+                           cwd=str(server.parent), env=server_env(server))
         return (r.stdout + r.stderr)
     except (OSError, subprocess.SubprocessError) as e:
         return f"cannot run: {e}"

@@ -1,11 +1,11 @@
 {
- "release": "v0.9.2",
- "download_base": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.2/",
+ "release": "v0.9.4",
+ "download_base": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.4/",
  "repo": "https://github.com/0xShug0/audio.cpp",
  "licence": {
   "name": "Apache-2.0",
   "holder": "ShugoAI LLC",
-  "url": "https://github.com/0xShug0/audio.cpp/blob/v0.9.2/LICENSE"
+  "url": "https://github.com/0xShug0/audio.cpp/blob/v0.9.4/LICENSE"
  },
  "auto_ok": [],
  "binaries": [
@@ -17,9 +17,9 @@
    "note": "",
    "assets": [
     {
-     "name": "audio-v0.9.2-bin-macos-arm64-metal.tar.gz",
-     "size": 31972675,
-     "sha256": "827239e1d5824f8294cce461661dc7f20f933869bd333dfc60ba3c089f29faab"
+     "name": "audio-v0.9.4-bin-macos-arm64-metal.tar.gz",
+     "size": 36947118,
+     "sha256": "5722c4f33e56114345965c0dee472a9239218f7499ace6393bba6a951a41b86a"
     }
    ]
   },
@@ -31,14 +31,14 @@
    "note": "NVIDIA driver 580 or newer, GPU compute capability 7.5 or newer (RTX 20 series and later)",
    "assets": [
     {
-     "name": "audio-v0.9.2-bin-windows-x64-cuda13.3.zip",
-     "size": 275142402,
-     "sha256": "ddf7474656e4c47a1bc5b5a53a268709d968d87132367d646baae5a77c34391f"
+     "name": "audio-v0.9.4-bin-windows-x64-cuda13.3.zip",
+     "size": 279188412,
+     "sha256": "b05eceb8aa0a29e618b3af87e0c2fd0fb665034d181096eb868ed856bf656b8b"
     },
     {
-     "name": "audio-v0.9.2-cudart-windows-x64-cuda13.3.zip",
+     "name": "audio-v0.9.4-cudart-windows-x64-cuda13.3.zip",
      "size": 575457454,
-     "sha256": "f3bb616e43f4b8aec4be7f2c2b323aec381a1993bac382401a011c121c126e59"
+     "sha256": "b93fa9b9cb875ccea1aa81cb09fd6b02c9afda133de73bd119a73ff5d8db6d96"
     }
    ]
   },
@@ -50,14 +50,14 @@
    "note": "NVIDIA GPU with an older driver",
    "assets": [
     {
-     "name": "audio-v0.9.2-bin-windows-x64-cuda12.4.zip",
-     "size": 463532839,
-     "sha256": "099bd43b74a5175fd9e03ac95c9fabe8b97718826d547890a03950483e81b168"
+     "name": "audio-v0.9.4-bin-windows-x64-cuda12.4.zip",
+     "size": 467800419,
+     "sha256": "e85d829e121a424a960d9ad293536b7ada74ea845b1c12fcf2991ec09a224d1e"
     },
     {
-     "name": "audio-v0.9.2-cudart-windows-x64-cuda12.4.zip",
+     "name": "audio-v0.9.4-cudart-windows-x64-cuda12.4.zip",
      "size": 607273675,
-     "sha256": "50e278d213daa38e782a10b501b764c5c0738381898dacee7243101b890eeb0d"
+     "sha256": "efb58667b95bcb32e89ddf87811664e6ffdced3fe7015ddcc077599ed5f44bb2"
     }
    ]
   },
@@ -69,9 +69,28 @@
    "note": "any GPU with a Vulkan 1.1 driver (AMD, Intel, NVIDIA)",
    "assets": [
     {
-     "name": "audio-v0.9.2-bin-windows-x64-vulkan.zip",
-     "size": 62705751,
-     "sha256": "271402eae94195b9e2204e9f07e576bd0df879c75bafb0fa2f940830648d63f9"
+     "name": "audio-v0.9.4-bin-windows-x64-vulkan.zip",
+     "size": 84083745,
+     "sha256": "804f70cf47c7b8450ef37e76fc04ecee71728345061f6e749a412932dd7db7a7"
+    }
+   ]
+  },
+  {
+   "id": "ubuntu-x64-cuda12.8",
+   "platform": "linux-x64",
+   "backend": "cuda",
+   "status": "untested",
+   "note": "NVIDIA GPU with compute capability 7.5 or newer (RTX 20 series and later); ran on driver 561 in WSL2. Needs NCCL (the PyTorch CUDA wheels and the Folivox cuda image carry it). Meant for Docker with the NVIDIA Container Toolkit, where Vulkan often does not work",
+   "assets": [
+    {
+     "name": "audio-v0.9.4-bin-ubuntu-x64-cuda12.8-colab.tar.gz",
+     "size": 229825141,
+     "sha256": "5b6708aa781a8a7b08d506abc6104ff9e642cb33c4271c768e81205c4c8df686"
+    },
+    {
+     "name": "audio-v0.9.4-cudart-ubuntu-x64-cuda12.8.tar.gz",
+     "size": 787014404,
+     "sha256": "48ab6515a4a924c128309bdeebed10c8e6a647f0399e66d46c986c6ba4e7c50f"
     }
    ]
   },
@@ -83,9 +102,9 @@
    "note": "any GPU with a Vulkan 1.1 driver; the portable build, because the plain one crashes with an illegal instruction on CPUs without AVX-512 (Ryzen 5000)",
    "assets": [
     {
-     "name": "audio-v0.9.2-bin-ubuntu-x64-vulkan-portable.tar.gz",
-     "size": 73616441,
-     "sha256": "37294a0d9d52383475a47df95dc725c83faee0dbfae00088f1509ed4d7f3619d"
+     "name": "audio-v0.9.4-bin-ubuntu-x64-vulkan-portable.tar.gz",
+     "size": 87776393,
+     "sha256": "82808683beb5da2987abbdca5ba3b93622eb93568eda8d92acf1f7314a26dbab"
     }
    ]
   }
@@ -135,6 +154,24 @@
     "qa_mean": 0.004
    },
    "note": "one fragment lost its last clause natively; the quality check normally catches that and retakes it"
+  },
+  {
+   "platform": "linux-x64",
+   "hardware": "RTX 3050 Laptop 4 GB, Ryzen 9 5900HX, WSL2 Ubuntu 22.04 (Windows driver 561.09)",
+   "date": "2026-11-07",
+   "engine": "cosyvoice3",
+   "backend": "cuda",
+   "release": "v0.9.4",
+   "weights": "q8_0, converted to f16 while loading",
+   "fragment": "ru-hard, 6 fragments, bundled voice, QA off",
+   "native": {
+    "rtf": [
+     0.55,
+     0.55
+    ],
+    "load_s": 76
+   },
+   "note": "ubuntu-x64-cuda12.8 + cudart archive, NCCL from the nvidia-nccl-cu12 wheel; runs although the driver is below the 570 CUDA 12.8 asks for. Not in a container."
   }
  ],
  "recheck": {
@@ -146,7 +183,7 @@
   "upstream": {
    "repo": "https://github.com/0xShug0/audio.cpp",
    "docs": "https://github.com/0xShug0/audio.cpp#build-yourself",
-   "release": "v0.9.2",
+   "release": "v0.9.4",
    "gguf": "https://huggingface.co/audio-cpp/audio.cpp-gguf",
    "note": "Apache-2.0 code; every model keeps its own licence (docs/model_licenses.md in the repository)"
   },

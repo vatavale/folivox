@@ -47,19 +47,6 @@ def _runtime_ready(rt: builds.Runtime) -> bool:
         return False
 
 
-OWN_SERVER_HELP = ("Drama 3 is in the audio.cpp source (since 2026-10-16) but not in a release yet: it needs a server "
-                   "built from source. On Apple Silicon run  folivox runtime build drama3  (it compiles the pinned "
-                   "commit here); on other systems see  folivox runtime build-help  and set FOLIVOX_NATIVE_SERVER "
-                   "to the file you built.")
-
-
-def needs_own_server(b: Build) -> bool:
-    """Native Drama 3 runs only on a build you made yourself (no release binaries exist)."""
-    from folivox.tts import native_setup
-
-    return b.backend == "native" and b.kind == "drama3" and native_setup.own_server_for("fish_drama3") is None
-
-
 def is_ready(b: Build) -> bool:
     cat = builds.load()
     try:
@@ -67,8 +54,6 @@ def is_ready(b: Build) -> bool:
     except (OSError, ValueError):
         return False
     if info.get("revision") != b.revision or not _runtime_ready(cat.runtimes[b.runtime]):
-        return False
-    if needs_own_server(b):
         return False
     wd = builds.weights_dir(b)
     try:
@@ -182,8 +167,6 @@ def install(b: Build, progress: Progress | None = None, log: Callable[[str], Non
     problem = free_disk_ok(b, builds.engines_root())
     if problem:
         raise InstallError(problem)
-    if needs_own_server(b):
-        raise InstallError(OWN_SERVER_HELP)
     ensure_runtime(cat.runtimes[b.runtime], log)
     wd = builds.weights_dir(b)
     wd.mkdir(parents=True, exist_ok=True)

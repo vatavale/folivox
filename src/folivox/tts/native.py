@@ -49,6 +49,7 @@ class Spec:
     threads: int | None = None
     family: str = "cosyvoice3"  # audio.cpp model family: cosyvoice3 | fish_audio | fish_drama3
     device: int | None = None  # GPU number inside the backend (see native_setup.choose_device); None = engine default
+    options: tuple[tuple[str, object], ...] = ()  # extra session options, e.g. fish_drama3.cpu_expert_layers
 
 
 def server_command(server: Path) -> list[str]:
@@ -74,7 +75,8 @@ class Server:
 
     def session_options(self) -> dict:
         """CosyVoice converts its weights to ``weight_type`` while loading; the Fish models run as published."""
-        return {"cosyvoice3.weight_type": self.spec.weight_type} if self.spec.family == "cosyvoice3" else {}
+        base = {"cosyvoice3.weight_type": self.spec.weight_type} if self.spec.family == "cosyvoice3" else {}
+        return {**base, **dict(self.spec.options)}
 
     # -- life cycle
     def start(self) -> None:
@@ -100,7 +102,8 @@ class Server:
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         try:
             self.proc = subprocess.Popen(cmd, stdout=out, stderr=out, stdin=subprocess.DEVNULL,  # noqa: S603
-                                         cwd=str(sp.server.parent), creationflags=flags)
+                                         cwd=str(sp.server.parent), creationflags=flags,
+                                         env=native_setup.server_env(sp.server))
         except OSError as e:
             self.stop()  # removes the temporary config folder
             raise NativeError(f"Could not start the native engine {sp.server}: {e}") from e

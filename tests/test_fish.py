@@ -446,3 +446,13 @@ def test_automatic_pick_is_reliable_and_sounds_good():
     assert drama(36.0, everything, free=30.0) == drama(36.0, everything, free=2.0)
     assert builds.auto_build("fish-drama3", Hardware("darwin", "arm64", 24.0, 20.0), cat) is None
     assert builds.auto_build("fish-s2", Hardware("darwin", "arm64", 16.0, 9.0), cat) is None
+
+
+def test_fish_engines_read_rule_less_languages():
+    """Local Fish models read the Fish API's languages: a Dutch book or fragment is not sent back to the book
+    language (issue #8)."""
+    from folivox.pipeline import engine_languages
+
+    speaks = engine_languages("fish-s2")
+    assert speaks is not None and {"nl", "pt", "ru", "en"} <= speaks
+    assert "nl" in engine_languages("fish-drama3")

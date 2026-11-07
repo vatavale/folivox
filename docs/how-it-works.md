@@ -42,7 +42,10 @@ heteronyms in English, and noun gender in French/German beyond common words and 
 
 ## Languages without rules
 
-The nine languages above have their own rules. Any other language that an online engine can read (Fish Audio
+The nine languages above have their own rules, and so does Dutch (`lang/nl.py`: numbers with the hundreds written
+together, dates such as 3-5-2024, times, euros, units, Roman numerals and ordinals such as 19e and 1ste, common
+abbreviations such as bijv., d.w.z., dhr.). CosyVoice does not read Dutch; the Fish engines (local and online) and
+the other online engines do. Any other language that an online engine can read (Fish Audio
 reads 84 languages in all: Polish, Portuguese, Arabic, Hindi, Thai and so on) is handled by a rule-less
 language: only whitespace, quotes and dashes are cleaned, and numbers, dates, units and abbreviations stay as they
 are, because the voice model reads them itself. Sentences are split on the terminators of every script

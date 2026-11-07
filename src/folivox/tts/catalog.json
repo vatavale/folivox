@@ -330,6 +330,107 @@
    ]
   },
   {
+   "id": "drama3-native-q2",
+   "engine": "fish-drama3",
+   "title": "Fish Audio Drama 3, native GGUF Q2_K experts, 17.1 GB",
+   "backend": "native",
+   "kind": "drama3",
+   "platforms": [
+    "darwin-arm64",
+    "windows-x86_64",
+    "linux-x86_64"
+   ],
+   "repo": "Jmica/Drama-3-GGUF",
+   "runtime": "audiocpp-native",
+   "licence": "fish-community",
+   "quant": "Q2_K experts, Q8_0 backbone",
+   "rank": 50,
+   "status": "untested",
+   "memory_gb": {
+    "weights": 17.1,
+    "peak": 22,
+    "min_total": 28
+   },
+   "languages": [
+    "ru",
+    "en",
+    "de",
+    "fr",
+    "es",
+    "it",
+    "zh",
+    "ja",
+    "ko"
+   ],
+   "tested_on": [
+    {
+     "hardware": "Apple M3 Pro, 36 GB",
+     "date": "2026-11-07",
+     "fragment": "nl-hard (Dutch: dates, times, money, ordinals, Roman numerals, abbreviations), 4 fragments, voice gemini-2 (Russian sample)",
+     "rtf": 2.16,
+     "peak_gb": null,
+     "cer": "every number, date and abbreviation read correctly by Whisper large-v3-turbo; the heading word kept a Russian accent",
+     "runtime": "audio.cpp v0.9.4 release, Metal",
+     "note": "model load 83 s; only 10 GB was free (run with FOLIVOX_IGNORE_MEMORY=1), so the computer swapped"
+    }
+   ],
+   "notes": "Fish Community License. Runs on the audio.cpp native runtime (release v0.9.4 or newer). Weights: the V2 checkpoint (fishaudio/drama-3 of 2026-10-29) converted by Jmica. On a GPU with less memory than the file, part of the expert layers run on the CPU (fish_drama3.cpu_expert_layers), so system RAM has to hold the rest. Memory figures are estimates, not measurements.",
+   "revision": "060acc8e5d9e5d16baf647c775dfe1a1438f5f35",
+   "size_bytes": 17053647360,
+   "files": [
+    {
+     "path": "drama-3-backbone-8bit-experts-Q2_K.gguf",
+     "size": 17053647360,
+     "sha256": "5cb86588eff6404f4482830cfd3d69713f27115c02530a29f772535262fb7826"
+    }
+   ]
+  },
+  {
+   "id": "drama3-native-q3",
+   "engine": "fish-drama3",
+   "title": "Fish Audio Drama 3, native GGUF Q3_K_S experts, 20.3 GB",
+   "backend": "native",
+   "kind": "drama3",
+   "platforms": [
+    "darwin-arm64",
+    "windows-x86_64",
+    "linux-x86_64"
+   ],
+   "repo": "Jmica/Drama-3-GGUF",
+   "runtime": "audiocpp-native",
+   "licence": "fish-community",
+   "quant": "Q3_K_S experts, Q8_0 backbone",
+   "rank": 52,
+   "status": "untested",
+   "memory_gb": {
+    "weights": 20.3,
+    "peak": 25,
+    "min_total": 32
+   },
+   "languages": [
+    "ru",
+    "en",
+    "de",
+    "fr",
+    "es",
+    "it",
+    "zh",
+    "ja",
+    "ko"
+   ],
+   "tested_on": [],
+   "notes": "Fish Community License. Runs on the audio.cpp native runtime (release v0.9.4 or newer). Weights: the V2 checkpoint (fishaudio/drama-3 of 2026-10-29) converted by Jmica. On a GPU with less memory than the file, part of the expert layers run on the CPU (fish_drama3.cpu_expert_layers), so system RAM has to hold the rest. Memory figures are estimates, not measurements.",
+   "revision": "060acc8e5d9e5d16baf647c775dfe1a1438f5f35",
+   "size_bytes": 20325204480,
+   "files": [
+    {
+     "path": "drama-3-backbone-8bit-experts-Q3_K_S.gguf",
+     "size": 20325204480,
+     "sha256": "c3f86b7e831e05769f21561950d6604d48edda684aa123b7ca763314fc5a6223"
+    }
+   ]
+  },
+  {
    "id": "s2pro-mlx-8bit",
    "engine": "fish-s2",
    "title": "Fish Audio S2 Pro, MLX 8-bit, 6.7 GB",

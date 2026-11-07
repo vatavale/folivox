@@ -1,4 +1,4 @@
-"""Building audio.cpp from source: the one case that needs it (Drama 3 is not in a release yet).
+"""Building audio.cpp from source, for a newer Drama 3 than the release (releases carry it since v0.9.4).
 
 Recipes for every platform are data in ``native_catalog.json`` (``sources.build``) and are shown by
 ``folivox runtime build-help``. Only macOS (Metal) is automated here, because it is the one setup that was run end to

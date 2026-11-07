@@ -173,9 +173,12 @@ down but does not break it. Use `cuda128` for RTX 50 cards: the older build has 
 AMD and Intel GPUs: the optional native runtime has a Vulkan build ([native-runtime.md](native-runtime.md), experimental).
 Passing `/dev/dri` into the container might make it usable; this is **untested**, treat it as a guess.
 
-The optional native runtime does not work on the GPU in Docker Desktop on Windows: WSL 2 gives containers CUDA but no
-Vulkan driver, and the only Linux build Folivox can download is the Vulkan one. Leave *Inference runtime* on PyTorch
-there (the default); it uses the NVIDIA card through CUDA.
+The optional native runtime (CosyVoice, Fish S2 Pro and Drama 3 as GGUF) uses the CUDA build of audio.cpp on an NVIDIA
+card, also in a container: NVIDIA's Vulkan driver often fails inside containers (`ERROR_INCOMPATIBLE_DRIVER`), CUDA
+does not. The CUDA build needs NCCL, which the `cuda` images already carry with PyTorch. Drama 3 is larger than most
+cards (the Q2 file is 17 GB), so part of its expert layers run on the CPU; on a 12 GB card that is about half of them,
+and the system needs enough RAM for that part (`folivox engines` shows it). Set `drama3_cpu_expert_layers` under
+`[runtime.native]` in `config.toml`, or `FOLIVOX_DRAMA3_CPU_EXPERT_LAYERS`, to override the estimate.
 
 ## Update
 

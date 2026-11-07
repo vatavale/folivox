@@ -145,7 +145,7 @@ def runtime_build_help(
     up, fk = src["upstream"], src["drama3"]
     console.print(f"[bold]Where things come from[/]\n  engine: {up['repo']} (release {up['release']}, Apache-2.0)\n"
                   f"  models: {up['gguf']} (each model keeps its own licence)\n"
-                  f"  Drama 3 (not in a release yet): {fk['repo']} {fk['branch']}, commit {fk['commit'][:8]};\n"
+                  f"  Drama 3 (released since v0.9.4): {fk['repo']} {fk['branch']}, commit {fk['commit'][:8]};\n"
                   f"    weights {fk['gguf']}; docs {fk['docs']}", highlight=False)
     steps = src["build"].get(target) if target else None
     if target and steps is None:

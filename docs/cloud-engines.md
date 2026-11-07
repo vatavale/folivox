@@ -53,8 +53,8 @@ needs no 32 GB Mac and is faster, the local one is free.
   one request is one chunk and the voice stays steady; longer fragments (`--max-chars`) only save requests.
 - **Languages and normalisation.** The book can be in any language Fish has voices for (84 in all: the nine below plus 75 in
   the studio's *Other languages* list, for example Polish, Portuguese, Dutch, Turkish, Arabic, Hindi, Thai, Welsh, Kazakh). For the nine languages
-  with Folivox rules (ru, en, de, fr, es, it, zh, ja, ko) numbers and abbreviations are expanded before sending; for
-  every other language the text is sent as it is. Fish's own text normalisation (`normalize`) is **off on purpose**
+  with Folivox rules (ru, en, de, fr, es, it, zh, ja, ko) and for Dutch (nl) numbers and abbreviations are expanded
+  before sending; for every other language the text is sent as it is. Fish's own text normalisation (`normalize`) is **off on purpose**
   and the fragment's `language` is always sent: in a test of Drama 3 on the live API, Fish's normaliser added nothing
   in pt, pl, nl, tr, ar, cs, sv, uk and hi (it has no rules for most of them), made Russian worse ("1250" came
   out as "тысяч двести пятьдесят") and rewrote a 24-hour time in English; with `language` left out its automatic

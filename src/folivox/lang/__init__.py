@@ -14,6 +14,8 @@ __all__ = ["CJKLanguage", "Language", "LatinLanguage", "available", "get", "has_
 # Languages with normalisation rules (the CosyVoice 3 set). Any other known code gets a rule-less
 # GenericLanguage from get(). Each code maps to the module folivox.lang.<code>.
 SUPPORTED = ("ru", "en", "de", "fr", "es", "it", "zh", "ja", "ko")
+# Languages with text rules: the CosyVoice set plus those only the Fish and online engines read.
+RULES = (*SUPPORTED, "nl")
 
 _registry: dict[str, Language] = {}
 _generic: dict[str, Language] = {}  # rule-less languages, built on demand
@@ -25,15 +27,15 @@ def register(lang: Language) -> Language:
 
 
 def _load_all() -> None:
-    for code in SUPPORTED:
+    for code in RULES:
         if code not in _registry:
             importlib.import_module(f"folivox.lang.{code}")
 
 
 def available() -> list[Language]:
     _load_all()
-    return [_registry[c] for c in SUPPORTED if c in _registry] + [
-        v for k, v in _registry.items() if k not in SUPPORTED]
+    return [_registry[c] for c in RULES if c in _registry] + [
+        v for k, v in _registry.items() if k not in RULES]
 
 
 def normalize_code(code: str | None) -> str:
@@ -41,7 +43,7 @@ def normalize_code(code: str | None) -> str:
     code = (code or "").strip().lower().replace("_", "-").split("-")[0]
     return {"rus": "ru", "eng": "en", "deu": "de", "ger": "de", "fra": "fr", "fre": "fr", "spa": "es",
             "ita": "it", "zho": "zh", "chi": "zh", "cmn": "zh", "jpn": "ja", "kor": "ko",
-            "ukr": "uk", "bel": "be", "jw": "jv"}.get(code, code)
+            "ukr": "uk", "bel": "be", "jw": "jv", "nld": "nl", "dut": "nl"}.get(code, code)
 
 
 def get(code: str | None) -> Language:
@@ -63,5 +65,5 @@ def get(code: str | None) -> Language:
 
 
 def has_rules(code: str | None) -> bool:
-    """True for the languages with their own normalisation rules (:data:`SUPPORTED`)."""
-    return normalize_code(code) in SUPPORTED
+    """True for the languages with their own normalisation rules (:data:`RULES`)."""
+    return normalize_code(code) in RULES
