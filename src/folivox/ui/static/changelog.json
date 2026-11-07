@@ -1,5 +1,31 @@
 [
  {
+  "version": "0.1.0.341",
+  "date": "2026-11-07",
+  "items": [
+   {
+    "type": "new",
+    "text": "Dutch: numbers, dates, times, money, units, Roman numerals, ordinals and common abbreviations are now read out in words. Dutch needs a Fish engine (local or online) or another online engine; CosyVoice does not read it."
+   },
+   {
+    "type": "new",
+    "text": "The local Fish engines (S2 Pro, Drama 3) now read every language the Fish service reads, Dutch, Portuguese and Polish among them."
+   },
+   {
+    "type": "new",
+    "text": "Drama 3 runs on the native runtime again (audio.cpp 0.9.4): builds Q2 (17 GB) and Q3 (20 GB). On an NVIDIA card smaller than the model, part of it runs on the CPU automatically."
+   },
+   {
+    "type": "new",
+    "text": "Linux with an NVIDIA card, also in Docker, gets a CUDA build of the native runtime instead of Vulkan, which often fails inside containers."
+   },
+   {
+    "type": "fix",
+    "text": "Native engines on an NVIDIA card are now judged by the card's memory, not the computer's, when Folivox says whether they fit."
+   }
+  ]
+ },
+ {
   "version": "0.1.0.334",
   "date": "2026-10-20",
   "items": [
