@@ -350,3 +350,10 @@ CosyVoice inference code (Apache-2.0) and parts of Matcha-TTS and Whisper (MIT);
 [`src/folivox/vendor/README.md`](src/folivox/vendor/README.md) and [NOTICE](NOTICE). The CosyVoice 3 weights are
 Apache-2.0 ([model card](https://huggingface.co/FunAudioLLM/Fun-CosyVoice3-0.5B-2512)) and are downloaded, not
 redistributed. Audio produced by commercial APIs is never bundled; its use is governed by the provider's terms.
+
+## Also by me
+
+[Bookseer](https://bookseer.app/) is an iOS and Android app that suggests three books for where you are in life
+right now, based on a questionnaire about you rather than your reading history. It is a separate, commercial
+project; Folivox does not depend on it and stays free and fully local. Not sure which book to turn into an
+audiobook? Ask the Oracle.
