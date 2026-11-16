@@ -63,6 +63,8 @@
  "s3.model": "Modelis",
  "s3.cap": "Išlaidų riba, $ (neprivaloma)",
  "s3.cap.ph": "be ribos",
+ "s3.parallel": "Lygiagrečios užklausos",
+ "s3.rpm": "Užklausos per minutę",
  "s4.aria.kind": "Balso rūšis",
  "s4.saved.h": "Mano sukurti balsai",
  "s4.saved.sub": "· laikomi jūsų paskyroje, galima naudoti nemokamai · spustelėkite pavadinimą, kad pervadintumėte",

@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Omejitev porabe, $ (neobvezno)",
  "s3.cap.ph": "brez omejitve",
+ "s3.parallel": "Vzporedne zahteve",
+ "s3.rpm": "Zahtevki na minuto",
  "s4.aria.kind": "Vrsta glasu",
  "s4.saved.h": "Moji ustvarjeni glasovi",
  "s4.saved.sub": "· shranjeni v vašem računu, brezplačni za ponovno uporabo · kliknite ime za preimenovanje",

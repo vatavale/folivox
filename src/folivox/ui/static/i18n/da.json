@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Udgiftsloft, $ (valgfrit)",
  "s3.cap.ph": "intet loft",
+ "s3.parallel": "Samtidige forespørgsler",
+ "s3.rpm": "Forespørgsler pr. minut",
  "s4.aria.kind": "Type stemme",
  "s4.saved.h": "Mine oprettede stemmer",
  "s4.saved.sub": "· gemt på din konto, gratis at genbruge · klik på et navn for at omdøbe",

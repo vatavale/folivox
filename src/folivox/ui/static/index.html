@@ -407,6 +407,8 @@ dialog ul { padding-inline-start:18px; margin:10px 0; } dialog li { margin:6px 0
     <label class="f"><span data-i18n="s3.who">Who reads the book</span><select id="o-tts"></select></label>
     <label class="f eng-cloud" hidden><span data-i18n="s3.model">Model</span><select id="o-tts_model"></select></label>
     <label class="f eng-cloud" hidden><span data-i18n="s3.cap">Spending cap, $ (optional)</span><input id="o-max_cost" type="number" min="0.5" step="0.5" placeholder="no cap" data-i18n-attr="placeholder:s3.cap.ph"></label>
+    <label class="f eng-cloud" hidden><span data-i18n="s3.parallel">Parallel requests</span><input id="o-tts_parallel" type="number" min="1" max="16" step="1" placeholder="Automatic" data-i18n-attr="placeholder:v.auto"></label>
+    <label class="f eng-cloud" hidden><span data-i18n="s3.rpm">Requests per minute</span><input id="o-tts_rpm" type="number" min="0" step="1" placeholder="Automatic" data-i18n-attr="placeholder:v.auto"></label>
   </div>
   <small class="mute" id="eng-blurb"></small>
   <div class="eng-alt" id="eng-alt" hidden></div>
@@ -1269,7 +1271,7 @@ function mkListenOptions() {
   const eng = $("#mk-leng").value, o = options();
   if (!eng || (ENG.cur() && eng === ENG.cur().name)) return o;
   if ((ENG.list.find(x => x.name === eng) || {}).cloud) return o;
-  for (const k of ["tts_model", "tts_style", "max_cost", "tts_mode", "tts_voice", "tts_description", "own_voice", "keep_voice"]) delete o[k];
+  for (const k of ["tts_model", "tts_style", "max_cost", "tts_parallel", "tts_rpm", "tts_mode", "tts_voice", "tts_description", "own_voice", "keep_voice"]) delete o[k];
   const e = ENG.list.find(x => x.name === eng);
   return { ...o, tts: eng, ...(e && e.fish ? { tts_build: "auto" } : {}) };
 }
@@ -2326,7 +2328,7 @@ function invalidatePreview() {
   $("#studio").hidden = true; $("#pv-play").hidden = true;
   $("#run-msg").textContent = t("run.invalidated");
 }
-const PREVIEW_INERT = "#eng-ack, #eng-own, #o-max_cost, #o-output_dir, #o-mp3, #o-device, #vq, #vgender, #vlangs, #vc-lang, #vc-sex";
+const PREVIEW_INERT = "#eng-ack, #eng-own, #o-max_cost, #o-tts_parallel, #o-tts_rpm, #o-output_dir, #o-mp3, #o-device, #vq, #vgender, #vlangs, #vc-lang, #vc-sex";
 function previewTouched(ev) {
   const t = ev.target; if (!t || !t.closest || t.closest(PREVIEW_INERT) || t.closest("#genvoice, #addvoice, #meta-box, #pron-box, #s-book, #adv")) return;
   if (t.closest("#s-chapters, #s-engine, #s-voice, #s-run details")) invalidatePreview();
@@ -2412,7 +2414,8 @@ function engOptions() {
   if (ENG.cur() && ENG.cur().fish) return { tts: ENG.cur().name, tts_build: $("#o-tts_build").value || "auto" };
   if (!ENG.cloud()) return {};
   const cap = $("#o-max_cost").value;
-  const base = { tts: ENG.cur().name, tts_model: $("#o-tts_model").value, tts_style: $("#o-tts_style").value, max_cost: cap ? +cap : null };
+  const base = { tts: ENG.cur().name, tts_model: $("#o-tts_model").value, tts_style: $("#o-tts_style").value, max_cost: cap ? +cap : null,
+                 tts_parallel: $("#o-tts_parallel").value ? +$("#o-tts_parallel").value : null, tts_rpm: $("#o-tts_rpm").value !== "" ? +$("#o-tts_rpm").value : null };
   if (ENG.sel) return { ...base, tts_mode: ENG.sel.mode, tts_voice: ENG.sel.id };  // a voice kept from an earlier book
   const mode = $("#o-tts_mode").value;
   return { ...base, tts_mode: mode, tts_voice: $("#o-tts_voice").value, tts_description: $("#o-tts_description").value, own_voice: $("#eng-own").checked,

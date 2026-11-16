@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Limit výdavkov, $ (voliteľné)",
  "s3.cap.ph": "bez limitu",
+ "s3.parallel": "Súbežné požiadavky",
+ "s3.rpm": "Požiadavky za minútu",
  "s4.aria.kind": "Druh hlasu",
  "s4.saved.h": "Moje vytvorené hlasy",
  "s4.saved.sub": "· uložené vo vašom účte, zadarmo na opakované použitie · kliknutím na názov ho premenujete",

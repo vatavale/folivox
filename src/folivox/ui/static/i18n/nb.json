@@ -63,6 +63,8 @@
  "s3.model": "Modell",
  "s3.cap": "Utgiftstak, $ (valgfritt)",
  "s3.cap.ph": "ingen grense",
+ "s3.parallel": "Samtidige forespørsler",
+ "s3.rpm": "Forespørsler per minutt",
  "s4.aria.kind": "Stemmetype",
  "s4.saved.h": "Stemmene mine",
  "s4.saved.sub": "· lagret i kontoen din, gratis å bruke på nytt · klikk på et navn for å gi det nytt navn",

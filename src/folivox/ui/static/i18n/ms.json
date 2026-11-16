@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Had perbelanjaan, $ (pilihan)",
  "s3.cap.ph": "tiada had",
+ "s3.parallel": "Permintaan selari",
+ "s3.rpm": "Permintaan seminit",
  "s4.aria.kind": "Jenis suara",
  "s4.saved.h": "Suara yang saya cipta",
  "s4.saved.sub": "· disimpan dalam akaun anda, percuma untuk digunakan semula · klik nama untuk menamakan semula",

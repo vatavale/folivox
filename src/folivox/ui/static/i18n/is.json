@@ -63,6 +63,8 @@
  "s3.model": "Líkan",
  "s3.cap": "Útgjaldaþak, $ (valfrjálst)",
  "s3.cap.ph": "ekkert þak",
+ "s3.parallel": "Samhliða beiðnir",
+ "s3.rpm": "Beiðnir á mínútu",
  "s4.aria.kind": "Tegund raddar",
  "s4.saved.h": "Raddirnar sem ég bjó til",
  "s4.saved.sub": "· geymdar á reikningnum þínum, ókeypis að nota aftur · smelltu á nafn til að endurnefna",

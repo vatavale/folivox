@@ -63,6 +63,8 @@
  "s3.model": "Malli",
  "s3.cap": "Kulutusraja, $ (valinnainen)",
  "s3.cap.ph": "ei rajaa",
+ "s3.parallel": "Rinnakkaiset pyynnöt",
+ "s3.rpm": "Pyyntöjä minuutissa",
  "s4.aria.kind": "Äänen laji",
  "s4.saved.h": "Luomani äänet",
  "s4.saved.sub": "· tallessa tililläsi, käytettävissä ilmaiseksi uudelleen · nimeä voi muuttaa napsauttamalla",

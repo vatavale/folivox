@@ -73,6 +73,9 @@ class RenderOptions:
     tts_description: str = ""  # voice description (design mode)
     voice_ref: Path | None = None  # your own recording to clone (clone mode)
     max_cost: float | None = None  # stop cleanly before spending more than this many USD
+    # online engines; None: config.toml, else the engine's own value (rpm 0: no limit of our own)
+    tts_parallel: int | None = None  # requests at the same time
+    tts_rpm: float | None = None  # requests started per minute
     accept_cloud: bool = False  # the caller showed the estimate and the user agreed
     keep_voice: bool = False  # keep a voice made in the provider account (and list it for other books)
     tts_voice_name: str = ""  # the name a kept voice is listed under
@@ -862,7 +865,8 @@ def render(book: Book, opts: RenderOptions, events: Events | None = None) -> Pat
         if cloud:
             if opts.speed != 1.0:
                 events.warning("Reading speed is not applied by cloud engines; the provider's own pace is used")
-            engine = ENGINES.create(opts.tts, model=opts.tts_model, max_cost=opts.max_cost)
+            engine = ENGINES.create(opts.tts, model=opts.tts_model, max_cost=opts.max_cost, parallel=opts.tts_parallel,
+                                    rpm=opts.tts_rpm)
             engine.should_stop = events.cancelled
             engine.on_wait = events.warning
             voice, owned = _cloud_voice(engine, opts, journal, events)

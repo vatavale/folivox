@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Harcama sınırı, $ (isteğe bağlı)",
  "s3.cap.ph": "sınır yok",
+ "s3.parallel": "Paralel istekler",
+ "s3.rpm": "Dakikadaki istek sayısı",
  "s4.aria.kind": "Ses türü",
  "s4.saved.h": "Oluşturduğum sesler",
  "s4.saved.sub": "· hesabınızda saklanır, ücretsiz yeniden kullanılır · yeniden adlandırmak için ada tıklayın",

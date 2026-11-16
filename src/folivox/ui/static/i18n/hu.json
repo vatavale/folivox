@@ -63,6 +63,8 @@
  "s3.model": "Modell",
  "s3.cap": "Költségkorlát, $ (nem kötelező)",
  "s3.cap.ph": "nincs korlát",
+ "s3.parallel": "Párhuzamos kérések",
+ "s3.rpm": "Kérések percenként",
  "s4.aria.kind": "A hang típusa",
  "s4.saved.h": "Létrehozott hangjaim",
  "s4.saved.sub": "· a fiókjában tárolva, ingyen újra felhasználható · a névre kattintva átnevezheti",

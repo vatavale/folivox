@@ -957,8 +957,23 @@ def create_app(token: str | None = None, port: int | None = None, data_dir: Path
             raise ApiError("The spending cap must be a number of dollars") from None
         if cap is not None and cap <= 0:
             raise ApiError("The spending cap must be more than zero")
+        def number(key, kind, label):
+            raw = o.get(key)
+            if raw in (None, ""):
+                return None
+            try:
+                n = kind(raw)
+            except (TypeError, ValueError):
+                raise ApiError(f"{label} must be a number") from None
+            if n < (1 if kind is int else 0):
+                raise ApiError(f"{label} must be {'at least 1' if kind is int else 'zero or more'}")
+            return n
+
+        parallel = number("tts_parallel", int, "Parallel requests")
+        rpm = number("tts_rpm", float, "Requests per minute")
         style = o.get("tts_style")
-        return dict(accept_cloud=True, tts_model=model, tts_voice=speaker, tts_mode=mode, tts_description=description,
+        return dict(accept_cloud=True, tts_parallel=parallel, tts_rpm=rpm,
+                    tts_model=model, tts_voice=speaker, tts_mode=mode, tts_description=description,
                     tts_style=str(style) if style not in (None, "") else None, voice_ref=ref, max_cost=cap,
                     keep_voice=bool(o.get("keep_voice", False)) and not mine,
                     tts_voice_name=" ".join(str(o.get("tts_voice_name") or "").split())[:60])

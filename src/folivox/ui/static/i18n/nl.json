@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Bestedingslimiet, $ (optioneel)",
  "s3.cap.ph": "geen limiet",
+ "s3.parallel": "Parallelle verzoeken",
+ "s3.rpm": "Verzoeken per minuut",
  "s4.aria.kind": "Soort stem",
  "s4.saved.h": "Mijn gemaakte stemmen",
  "s4.saved.sub": "· bewaard in je account, gratis opnieuw te gebruiken · klik op een naam om te hernoemen",

@@ -63,6 +63,8 @@
  "s3.model": "Modeli",
  "s3.cap": "Kufiri i shpenzimeve, $ (opsional)",
  "s3.cap.ph": "pa kufi",
+ "s3.parallel": "Kërkesa paralele",
+ "s3.rpm": "Kërkesa në minutë",
  "s4.aria.kind": "Lloji i zërit",
  "s4.saved.h": "Zërat e mi të krijuar",
  "s4.saved.sub": "· ruhen në llogarinë tuaj, falas për ripërdorim · klikoni një emër për ta riemërtuar",

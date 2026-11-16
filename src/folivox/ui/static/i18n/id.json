@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Batas pengeluaran, $ (opsional)",
  "s3.cap.ph": "tanpa batas",
+ "s3.parallel": "Permintaan paralel",
+ "s3.rpm": "Permintaan per menit",
  "s4.aria.kind": "Jenis suara",
  "s4.saved.h": "Suara buatan saya",
  "s4.saved.sub": "· disimpan di akun Anda, gratis dipakai ulang · klik nama untuk mengganti nama",

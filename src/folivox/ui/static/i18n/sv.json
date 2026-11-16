@@ -63,6 +63,8 @@
  "s3.model": "Modell",
  "s3.cap": "Kostnadstak, $ (valfritt)",
  "s3.cap.ph": "inget tak",
+ "s3.parallel": "Parallella förfrågningar",
+ "s3.rpm": "Förfrågningar per minut",
  "s4.aria.kind": "Typ av röst",
  "s4.saved.h": "Mina skapade röster",
  "s4.saved.sub": "· sparas i ditt konto, gratis att återanvända · klicka på ett namn för att byta namn",

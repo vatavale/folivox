@@ -119,8 +119,16 @@ What Folivox does:
   allow about 100 requests a day for Gemini TTS), a long book can take a few days: run the same command again
   after the reset, finished fragments are kept.
 
-To change the rate, put this in `config.toml` (or set `FOLIVOX_GEMINI_RPM` / `FOLIVOX_GEMINI_PARALLEL`; the section
-name is the engine, `0` removes the rate limit):
+Speed and limits are two separate knobs. **Parallel requests** is how many requests are in flight at once (Gemini 1,
+the other engines 3). **Requests per minute** is how many Folivox starts per minute (Gemini 10, the other engines no
+limit of their own). Parallel requests help only while the per-minute rate lets them start, so raise both together.
+Google does not publish TTS limits per tier: look at the *Rate limits* page for your project in AI Studio (they are
+per project and per model), and raise the numbers if your account has headroom, e.g. a higher paid tier.
+
+- CLI: `--tts-parallel 3 --tts-rpm 30` (`--tts-rpm 0` removes the per-minute limit of our own).
+- Studio: *Parallel requests* and *Requests per minute* in the online engine's options; empty means automatic.
+- Always: in `config.toml` (the section name is the engine), or `FOLIVOX_GEMINI_RPM` / `FOLIVOX_GEMINI_PARALLEL`
+  for Gemini. The CLI flag and the studio field win over the file.
 
 ```toml
 [cloud.gemini]

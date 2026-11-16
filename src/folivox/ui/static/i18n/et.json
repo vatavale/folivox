@@ -63,6 +63,8 @@
  "s3.model": "Mudel",
  "s3.cap": "Kulupiir, $ (valikuline)",
  "s3.cap.ph": "piirangut pole",
+ "s3.parallel": "Samaaegsed päringud",
+ "s3.rpm": "Päringuid minutis",
  "s4.aria.kind": "Hääle liik",
  "s4.saved.h": "Minu loodud hääled",
  "s4.saved.sub": "· hoitakse teie kontol, tasuta taaskasutatavad · nime muutmiseks klõpsake sellel",

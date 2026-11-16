@@ -63,6 +63,8 @@
  "s3.model": "Mô hình",
  "s3.cap": "Hạn mức chi tiêu, $ (không bắt buộc)",
  "s3.cap.ph": "không giới hạn",
+ "s3.parallel": "Yêu cầu song song",
+ "s3.rpm": "Yêu cầu mỗi phút",
  "s4.aria.kind": "Loại giọng đọc",
  "s4.saved.h": "Giọng tôi đã tạo",
  "s4.saved.sub": "· lưu trong tài khoản của bạn, dùng lại miễn phí · nhấp vào tên để đổi tên",

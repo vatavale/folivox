@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Spending cap, $ (optional)",
  "s3.cap.ph": "no cap",
+ "s3.parallel": "Parallel requests",
+ "s3.rpm": "Requests per minute",
  "s4.aria.kind": "Kind of voice",
  "s4.saved.h": "My created voices",
  "s4.saved.sub": "· kept in your account, free to reuse · click a name to rename",

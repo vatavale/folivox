@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Limit wydatków, $ (opcjonalnie)",
  "s3.cap.ph": "bez limitu",
+ "s3.parallel": "Żądania równoległe",
+ "s3.rpm": "Żądania na minutę",
  "s4.aria.kind": "Rodzaj głosu",
  "s4.saved.h": "Moje utworzone głosy",
  "s4.saved.sub": "· przechowywane na Twoim koncie, można używać za darmo · kliknij nazwę, aby ją zmienić",

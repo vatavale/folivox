@@ -338,3 +338,16 @@ def test_gemini_defaults_are_gentle_and_configurable(monkeypatch):
     monkeypatch.setenv("FOLIVOX_GEMINI_RPM", "0")
     assert gemini_engine(Fake(ok(wav_bytes())), rpm=None).limiter.rpm is None
     assert engine("openai")[0].limiter.rpm is None
+
+
+def test_parallel_and_rate_can_be_set_per_run(monkeypatch, tmp_path):
+    from folivox.tts.cloud import CloudTTS
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("FOLIVOX_CONFIG", str(tmp_path / "none.toml"))
+    default = CloudTTS("gemini")
+    assert default.parallel == 1 and default.limiter.rpm == 10
+    fast = CloudTTS("gemini", parallel=4, rpm=60)
+    assert fast.parallel == 4 and fast.limiter.rpm == 60
+    unlimited = CloudTTS("gemini", rpm=0)  # 0 removes our own limit, as in config.toml
+    assert unlimited.limiter.rpm is None

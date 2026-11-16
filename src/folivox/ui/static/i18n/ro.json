@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Limită de cheltuieli, $ (opțional)",
  "s3.cap.ph": "fără limită",
+ "s3.parallel": "Cereri în paralel",
+ "s3.rpm": "Cereri pe minut",
  "s4.aria.kind": "Tipul vocii",
  "s4.saved.h": "Vocile mele create",
  "s4.saved.sub": "· păstrate în contul dvs., gratuit de reutilizat · faceți clic pe un nume pentru a-l redenumi",

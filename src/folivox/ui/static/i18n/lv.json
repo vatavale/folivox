@@ -63,6 +63,8 @@
  "s3.model": "Modelis",
  "s3.cap": "Izdevumu limits, $ (nav obligāts)",
  "s3.cap.ph": "bez limita",
+ "s3.parallel": "Paralēli pieprasījumi",
+ "s3.rpm": "Pieprasījumi minūtē",
  "s4.aria.kind": "Balss veids",
  "s4.saved.h": "Manas izveidotās balsis",
  "s4.saved.sub": "· glabājas jūsu kontā, izmantojamas bez maksas · noklikšķiniet uz nosaukuma, lai pārdēvētu",

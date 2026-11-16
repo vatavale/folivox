@@ -63,6 +63,8 @@
  "s3.model": "Model",
  "s3.cap": "Límit de despesa, $ (opcional)",
  "s3.cap.ph": "sense límit",
+ "s3.parallel": "Peticions en paral·lel",
+ "s3.rpm": "Peticions per minut",
  "s4.aria.kind": "Tipus de veu",
  "s4.saved.h": "Les meves veus creades",
  "s4.saved.sub": "· guardades al teu compte, gratis per reutilitzar · fes clic en un nom per canviar-lo",
