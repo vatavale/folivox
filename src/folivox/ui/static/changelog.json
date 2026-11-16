@@ -1,5 +1,19 @@
 [
  {
+  "version": "0.1.0.343",
+  "date": "2026-11-16",
+  "items": [
+   {
+    "type": "new",
+    "text": "Gemini now sends up to 3,000 characters in one request instead of 300, so a book needs far fewer requests and runs into Gemini's daily request limit much later. A fragment still stays within one paragraph. Nothing to set: update and render as before."
+   },
+   {
+    "type": "new",
+    "text": "The Max fragment option is now shown for online engines too. It starts at the engine's own value (3,000 for Gemini, 300 for the others) and you can change it."
+   }
+  ]
+ },
+ {
   "version": "0.1.0.341",
   "date": "2026-11-07",
   "items": [
