@@ -231,6 +231,7 @@ def plan(book: Book, opts: RenderOptions, journal: Journal, voice_id: str, event
     copts = ChunkOptions(max_chars=max_chars, min_chars=min(opts.chunk.min_chars, max_chars), stress=stress,
                          lang=opts.lang or book.lang or "ru", pauses=opts.chunk.pauses,
                          speak_headings=opts.chunk.speak_headings, local_engine=not cloud, mixed=opts.chunk.mixed,
+                         join_paragraphs=cloud and max_chars > 300,
                          speaks=engine_languages(opts.tts, engine))
     if opts.pronounce:
         copts.lexicon = Lexicon.load(opts.pronounce)

@@ -122,3 +122,26 @@ def test_russian_clause_numbers_are_not_read_as_decimals():
     # real decimals and dates are untouched
     assert "целых" in normalize("Цена составила 2.5 рубля.")
     assert "точка" not in normalize("Договор от 12.05.2020 действует.")
+
+
+def test_online_engines_can_join_paragraphs_into_one_request():
+    from folivox.book import Block, BlockKind, Chapter
+    from folivox.text.chunk import ChunkOptions, plan_chapter
+
+    para = lambda t: Block(BlockKind.PARAGRAPH, t)  # noqa: E731
+    chapter = Chapter("c", [para("Первый абзац книги."), para("Второй абзац книги."),
+                            Block(BlockKind.SUBTITLE, "Часть"), para("Третий абзац книги."), para("* * *"),
+                            para("Четвёртый абзац книги."), para("Пятый абзац книги.")])
+    base = dict(stress="none", speak_headings=False, local_engine=False, min_chars=5)
+    alone = plan_chapter(chapter, ChunkOptions(max_chars=300, **base))
+    joined = plan_chapter(chapter, ChunkOptions(max_chars=3000, join_paragraphs=True, **base))
+    assert len(alone) > len(joined)
+    assert joined[0].text == "Первый абзац книги.\n\nВторой абзац книги."
+    assert joined[0].source == joined[0].text and joined[0].pause_after == alone[1].pause_after
+    # a heading and a scene break keep their own request and pause; indexes follow the new order
+    assert [c.kind for c in joined] == ["p", "heading", "p", "p"]
+    assert joined[3].text == "Четвёртый абзац книги.\n\nПятый абзац книги."
+    assert [c.index for c in joined] == [0, 1, 2, 3] and joined[-1].pause_after == ChunkOptions().pauses.chapter_end
+    # the size limit still holds
+    tight = plan_chapter(chapter, ChunkOptions(max_chars=30, join_paragraphs=True, **base))
+    assert all(len(c.text) <= 30 for c in tight)

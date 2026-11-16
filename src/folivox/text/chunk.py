@@ -63,6 +63,7 @@ class ChunkOptions:
     mixed: bool = True  # find stretches of another script (Latin in Russian text, …) and read them in their language
     speaks: frozenset[str] | None = None  # languages the engine can read (None: not checked)
     fallbacks: Counter = field(default_factory=Counter)  # {language: fragments the engine cannot read in it}
+    join_paragraphs: bool = False  # online engines: put neighbouring paragraphs into one request (fewer requests)
 
 
 @dataclass
@@ -219,6 +220,26 @@ def _plan_segments(raw, segs, ctx, end_pause, opts, normalize, dialogue, p) -> N
                         tags if j == 0 else "", lang))
 
 
+def join_chunks(chunks: list[Chunk], opts: ChunkOptions) -> list[Chunk]:
+    """Merge neighbouring running-text fragments up to ``max_chars``, so an online engine gets a few long requests
+    instead of one per paragraph. The silence between the merged paragraphs is then up to the voice model (a blank
+    line asks for a paragraph pause). Headings, scene breaks, the end of a chapter, another speaker or language and
+    fragments with expression tags are never merged: they keep their own request and pause."""
+    p = opts.pauses
+    out: list[Chunk] = []
+    for c in chunks:
+        prev = out[-1] if out else None
+        if (prev is not None and prev.kind == c.kind == "p" and prev.speaker == c.speaker and prev.lang == c.lang
+                and not prev.markup and not c.markup and prev.pause_after <= max(p.sentence, p.paragraph, p.dialogue)
+                and len(prev.text) + 2 + len(c.text) <= opts.max_chars):
+            sep = " " if prev.pause_after <= p.sentence else "\n" if prev.pause_after <= p.dialogue else "\n\n"
+            prev.text, prev.source = f"{prev.text}{sep}{c.text}", f"{prev.source}{sep}{c.source}"
+            prev.pause_after = c.pause_after
+        else:
+            out.append(replace(c, index=len(out)))
+    return out
+
+
 def plan_chapter(chapter: Chapter, opts: ChunkOptions | None = None, ctx: MarkupContext | None = None) -> list[Chunk]:
     opts = opts or ChunkOptions()
     p = opts.pauses
@@ -268,6 +289,8 @@ def plan_chapter(chapter: Chapter, opts: ChunkOptions | None = None, ctx: Markup
         if tags:
             tts = f"{tags} {tts}"
         chunks.append(Chunk(len(chunks), tts, source, pause, kind, speaker, tags, lang))
+    if opts.join_paragraphs:
+        chunks = join_chunks(chunks, opts)
     if chunks:
         chunks[-1].pause_after = p.chapter_end
     return chunks
