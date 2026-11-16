@@ -44,7 +44,8 @@ def test_engine_list_has_prices_limits_and_badges(env):
     assert by["fish"]["models"][0]["id"] == "drama-3" and by["fish"]["voice_modes"] == ["preset", "design", "clone"]
     assert by["fish"]["per_hour"] == 2.52 and "UTF-8" in by["fish"]["price_note"]
     assert by["openai"]["per_hour"] > 0 and by["openai"]["max_chars"] == 4096 and by["openai"]["key_in_env"]
-    assert by["gemini"]["fragment_chars"] == 3000 and by["openai"]["fragment_chars"] == 300  # fewer requests for Gemini
+    assert by["gemini"]["fragment_chars"] == 2000 and by["openai"]["fragment_chars"] == 300  # fewer requests for Gemini
+    assert by["gemini"]["max_chars"] == 4000 and by["elevenlabs"]["model_max_chars"]["eleven_v3"] == 5000
     assert "SECRET" not in c.get("/api/tts/engines").text
     assert by["gemini"]["voice_modes"] == by["elevenlabs"]["voice_modes"] == ["preset", "design"]
 

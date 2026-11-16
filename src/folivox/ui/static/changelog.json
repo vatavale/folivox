@@ -5,11 +5,15 @@
   "items": [
    {
     "type": "new",
-    "text": "Online engines now put neighbouring paragraphs into one request, up to the fragment size (Gemini: 3,000 characters), instead of one request per paragraph. Headings, scene breaks, chapter ends and other speakers still start a new request. The pause between merged paragraphs is then chosen by the voice model. Set Max fragment to 300 to get one request per paragraph again."
+    "text": "Online engines now put neighbouring paragraphs into one request, up to the fragment size (Gemini: 2,000 characters), instead of one request per paragraph. Headings, scene breaks, chapter ends and other speakers still start a new request. The pause between merged paragraphs is then chosen by the voice model. Set Max fragment to 300 to get one request per paragraph again."
    },
    {
     "type": "new",
     "text": "Online engines: new Parallel requests and Requests per minute options (CLI: --tts-parallel, --tts-rpm). If your account has higher limits, raise both to render faster; empty means automatic."
+   },
+   {
+    "type": "new",
+    "text": "Max fragment shows the largest value the chosen online model accepts."
    }
   ]
  },

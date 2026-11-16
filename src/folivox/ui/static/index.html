@@ -602,7 +602,7 @@ dialog ul { padding-inline-start:18px; margin:10px 0; } dialog li { margin:6px 0
   <details><summary data-i18n="run.options">Options</summary>
     <div class="grid">
       <label class="f"><span data-i18n="opt.speed">Speed</span><input id="o-speed" type="number" step="0.05" min="0.5" max="1.5" value="1"></label>
-      <label class="f"><span data-i18n="opt.maxchars">Max fragment (chars)</span><input id="o-max_chars" type="number" value="300"></label>
+      <label class="f"><span><span data-i18n="opt.maxchars">Max fragment (chars)</span><small id="o-max_hint"></small></span><input id="o-max_chars" type="number" value="300"></label>
       <label class="f" title="Helps the local model read Russian: it restores the letter ё (так «все» и «всё» читаются по-разному) and can add stress marks." data-i18n-attr="title:opt.ru.title"><span data-i18n="opt.ru">Russian reading aids</span><select id="o-stress"><option value="yo" data-i18n="opt.ru.yo">restore ё (recommended)</option><option value="none" data-i18n="opt.ru.none">leave the text as written</option><option value="all" data-i18n="opt.ru.all">ё and stress marks (experimental)</option></select></label>
       <label class="f" title="How many times a fragment may be re-read when speech recognition finds missing or wrong words" data-i18n-attr="title:opt.takes.title"><span data-i18n="opt.takes">Retakes per fragment</span><input id="o-takes" type="number" min="1" max="10" value="3"></label>
       <label class="f"><span data-i18n="opt.qa">Quality check</span><select id="o-qa"><option value="1" data-i18n="opt.qa.on">on: listen back with speech recognition</option><option value="0" data-i18n="opt.qa.off">off (faster, no extra cost)</option></select></label>
@@ -2559,7 +2559,17 @@ async function engKeysChanged() {  // an API key was saved or removed in the set
   } catch (x) { /* the next engine change reloads it */ }
 }
 // Options that mean something only for the local model are hidden for online engines (they ignore them).
+function maxFragmentHint() {  // the largest fragment the chosen online model accepts, if we know it
+  const e = ENG.cur(), box = $("#o-max_chars"); let n = 0;
+  if (e && e.cloud) {
+    let id = $("#o-tts_model").value; if (!id || id === "auto") id = ((e.models || [])[0] || {}).id;
+    n = (e.model_max_chars || {})[id] || e.max_chars || 0;
+  }
+  if (n) box.max = n; else box.removeAttribute("max");
+  $("#o-max_hint").textContent = n ? ` (≤ ${n.toLocaleString("en")})` : "";
+}
 function optionsVisibility() {
+  maxFragmentHint();
   const cloud = ENG.cloud(), qaOn = $("#o-qa").value === "1", ru = !book || book.lang === "ru";
   const row = (id, show) => { $("#" + id).parentElement.hidden = !show; };
   row("o-speed", !cloud); row("o-max_chars", true); row("o-device", !cloud && !(rtNative() && (ENG.cur() || {}).name === "cosyvoice3"));
@@ -2583,6 +2593,7 @@ function engChange() {
   if (e.fish) fishRefresh(); else $("#eng-fish").hidden = true;
   if (!e.cloud) return;
   $("#o-tts_model").innerHTML = `<option value="auto">${esc(t("eng.autonew"))}</option>` + e.models.map(m => `<option value="${esc(m.id)}">${esc(m.label)}${e.prices[m.id] != null ? ` (≈ $${dec(e.prices[m.id], 2)}/${t("u.h")})` : ""}${m.note ? " — " + esc(m.note) : ""}</option>`).join("");
+  maxFragmentHint();
   $("#o-tts_mode").innerHTML = e.voice_modes.map(m => `<option value="${m}">${esc((e.mode_labels || {})[m] || m)}</option>`).join("");
   $("#eng-terms").href = e.terms_url || "#"; $("#o-tts_mode").parentElement.hidden = e.voice_modes.length < 2;
   $("#o-tts_style").parentElement.hidden = !e.style;
@@ -2773,7 +2784,7 @@ $("#o-output_dir").addEventListener("input", runSummary);
 api("/api/settings").then(s => { if (s.output_dir) { $("#o-output_dir").placeholder = s.output_dir; runSummary(); } }).catch(() => {});
 $("#o-tts").onchange = () => { engChange(); addRules(); if (av) showSample(); }; 
 ["#o-tts_model", "#o-takes", "#o-qa"].forEach(i => $(i).addEventListener("change", engEstimate));
-$("#o-tts_model").addEventListener("change", () => { const e = ENG.cur(); if (e && e.cloud) engBlurbShow(e); });
+$("#o-tts_model").addEventListener("change", () => { const e = ENG.cur(); if (e && e.cloud) engBlurbShow(e); maxFragmentHint(); });
 document.addEventListener("change", (ev) => { if (ev.target.closest && ev.target.closest("#chapters, .chap, #chlist")) engEstimate(); });
 
 // -- generate a reference voice with a cloud provider -----------------------------------------------------------
