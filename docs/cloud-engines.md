@@ -108,7 +108,7 @@ What Folivox does:
 
 - **Fewer requests.** Every fragment is one request, and the daily limit counts requests. Local models want short
   fragments (300 characters), but a cloud engine does not, so online engines have their own default: 2,000
-  characters for Gemini, 300 for the others. When it is above 300, neighbouring paragraphs of running text are
+  characters for Gemini, OpenAI and ElevenLabs, 300 for the others. When it is above 300, neighbouring paragraphs of running text are
   put into one request (separated by a blank line), up to that size; headings, scene breaks, chapter ends, another
   speaker or language and expression tags always start a new request. The silence between merged paragraphs is
   then the voice model's choice rather than Folivox's fixed pause. Set another size with `--max-chars` or the

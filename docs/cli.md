@@ -23,7 +23,7 @@ longer explanations (`voices`, `providers`, `config`, `languages`, `resuming`, `
 | Voice | `--voice`, `-v` | by book language | catalog id or a WAV/FLAC file |
 | | `--voice-text` | `.txt` next to the sample, else Whisper | transcript of the voice sample |
 | | `--speed` | 1.0 | speaking rate |
-| Text | `--max-chars` | 300 (online engines: their own, 2000 for Gemini) | longest fragment sent to the model at once; above 300 on an online engine, neighbouring paragraphs share one request |
+| Text | `--max-chars` | 300 (online engines: their own, 2000 for Gemini, OpenAI and ElevenLabs) | longest fragment sent to the model at once; above 300 on an online engine, neighbouring paragraphs share one request |
 | | `--stress` | `yo` | `none`, `yo` (restore ё), `all` (acute stress marks, experimental) |
 | Quality control | `--qa` / `--no-qa` | on | check each fragment with speech recognition (faster without) |
 | | `--takes` | 3 | max takes per fragment when QA finds a mismatch |

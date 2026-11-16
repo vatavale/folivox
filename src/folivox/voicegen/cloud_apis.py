@@ -207,6 +207,7 @@ class OpenAIVoice(CloudGenerator):
     terms_url = "https://openai.com/policies/terms-of-use"
     docs_url = "https://developers.openai.com/api/docs/guides/text-to-speech"
     max_chars = 4096
+    fragment_chars = 2000  # fewer requests; neighbouring paragraphs share one
     models = (_model("gpt-4o-mini-tts", "GPT-4o mini TTS", "newest; follows style instructions"),
               _model("tts-1-hd", "TTS-1 HD", "no instructions"), _model("tts-1", "TTS-1", "cheapest, no instructions"))
     VOICES = ("alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse",
@@ -279,6 +280,7 @@ class ElevenLabs(CloudGenerator):
     terms_url = "https://elevenlabs.io/terms-of-use"
     docs_url = "https://elevenlabs.io/docs/api-reference/text-to-voice/design"
     max_chars = 10000
+    fragment_chars = 2000  # fewer requests; neighbouring paragraphs share one
     BASE = "https://api.elevenlabs.io"
     models = (_model("eleven_v4", "Eleven v4", "newest, 90+ languages"), _model("eleven_v3", "Eleven v3", "expressive"),
               _model("eleven_multilingual_v2", "Multilingual v2", "29 languages, stable"),
