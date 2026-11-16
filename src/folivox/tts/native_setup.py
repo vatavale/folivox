@@ -241,7 +241,8 @@ def server_env(server: Path, base: dict | None = None) -> dict[str, str]:
         if site.endswith("site-packages"):
             dirs += sorted(str(d) for d in (Path(site) / "nvidia").glob("*/lib") if d.is_dir())
     if dirs:
-        env["LD_LIBRARY_PATH"] = os.pathsep.join([*dirs, *filter(None, [env.get("LD_LIBRARY_PATH")])])
+        env["LD_LIBRARY_PATH"] = ":".join(  # a Linux variable: always ":"
+            [*dirs, *filter(None, [env.get("LD_LIBRARY_PATH")])])
     return env
 
 

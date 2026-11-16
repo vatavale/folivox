@@ -66,7 +66,9 @@ def advice(platform: str | None = None) -> dict:
     from folivox.tts import native_setup as ns
 
     tag = platform or ns.platform_tag()
-    rows = [m for m in ns.load().measurements if m["platform"] == tag and m["engine"] == "cosyvoice3"]
+    # only a run that also measured PyTorch on the same machine can say which is faster
+    rows = [m for m in ns.load().measurements
+            if m["platform"] == tag and m["engine"] == "cosyvoice3" and "pytorch" in m]
     if not rows:
         return {"level": "unmeasured", "platform": tag, "bench": BENCH_COMMAND}
     m = rows[0]

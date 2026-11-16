@@ -644,3 +644,11 @@ def test_native_fit_uses_gpu_memory():
     d = builds.fit(cat.build("drama3-native-q2"), rtx3060)
     assert d.level == "tight" and "expert layers" in d.message
     assert builds.fit(cat.build("drama3-native-q2"), builds.Hardware("linux", "x86_64", 16.0, 14.0, 4.0)).level == "no"
+
+
+def test_runtime_advice_needs_a_pytorch_baseline():
+    from folivox.tts import runtime
+
+    # linux-x64 has a native-only measurement (no PyTorch run to compare with): no advice, and no crash
+    assert runtime.advice("linux-x64")["level"] == "unmeasured"
+    assert runtime.advice("darwin-arm64")["level"] in ("try", "unmeasured")
