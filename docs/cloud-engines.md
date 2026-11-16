@@ -106,6 +106,16 @@ What Folivox does:
 - A **per-day** limit is not retried (waiting a minute cannot help). The run stops with a message; the quota resets
   at midnight Pacific time. Run the same command again then, pick another model, or enable billing for the project.
 
+- **Fewer requests.** A fragment is one request, and a fragment never crosses a paragraph. Local models want
+  short fragments (300 characters), but a cloud engine does not, so online engines have their own default: 3,000
+  characters for Gemini, 300 for the others. Set another size with `--max-chars` or the *Max fragment* field in the
+  studio's options (shown for online engines too). In a test of Gemini 3.8 Flash on a hard Russian passage, sending a
+  whole paragraph or even two paragraphs at once lost no text and was read as accurately as 300-character
+  fragments. The gain is limited by paragraph length: a book of short paragraphs still needs about one request
+  per paragraph. If a daily limit is what stops you (the free tier and paid tier 1 allow about 100 requests a day
+  for Gemini TTS), a long book takes several days to finish: run the same command again after the reset, finished
+  fragments are kept.
+
 To change the rate, put this in `config.toml` (or set `FOLIVOX_GEMINI_RPM` / `FOLIVOX_GEMINI_PARALLEL`; the section
 name is the engine, `0` removes the rate limit):
 

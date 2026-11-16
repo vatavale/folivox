@@ -325,8 +325,10 @@ def render(
                                           show_default=".txt next to sample, else Whisper",
                                           help="Transcript of the voice sample (text or a .txt file)."),
     speed: float = typer.Option(1.0, "--speed", rich_help_panel=P_VOICE, help="Speaking rate (0.9 = slower)."),
-    max_chars: int = typer.Option(300, "--max-chars", rich_help_panel=P_TEXT,
-                                  help="Longest fragment sent to the model at once."),
+    max_chars: int = typer.Option(None, "--max-chars", rich_help_panel=P_TEXT,
+                                  show_default="300 local, per engine online",
+                                  help="Longest fragment sent to the model at once. Online engines rate-limit "
+                                       "per request, so a longer fragment means fewer requests."),
     stress: Stress = typer.Option(Stress.yo, "--stress", rich_help_panel=P_TEXT,
                                   help="Russian only: none | yo (restore ё) | all (stress marks, experimental)."),
     pronounce: list[Path] = typer.Option(None, "--pronounce", rich_help_panel=P_TEXT, show_default=False,

@@ -38,7 +38,8 @@ class RenderOptions:
     chapters: str | None = None  # "1-3,5" (1-based)
     preview: int | None = None  # only the first N characters of each selected chapter
     depth: int = 2
-    max_chars: int = 300  # CosyVoice 3 drops the last sentence of longer fragments more and more often
+    # None: 300 locally (CosyVoice 3 drops the last sentence of longer fragments), the engine's own default online
+    max_chars: int | None = None
     stress: str = "yo"
     lang: str | None = None  # book language (ISO 639-1); None → from the book metadata / detection
     speed: float = 1.0
@@ -223,7 +224,10 @@ def plan(book: Book, opts: RenderOptions, journal: Journal, voice_id: str, event
     if cloud and stress == "all":  # stress marks are CosyVoice markup; a cloud voice would read them aloud
         events.warning("Stress marks are not used with cloud engines; restoring ё only")
         stress = "yo"
-    max_chars = min(opts.max_chars, engine.max_chars) if cloud else opts.max_chars  # the provider's request limit
+    if cloud:  # never above the provider's request limit
+        max_chars = min(opts.max_chars or engine.fragment_chars, engine.max_chars)
+    else:
+        max_chars = opts.max_chars or 300
     copts = ChunkOptions(max_chars=max_chars, min_chars=min(opts.chunk.min_chars, max_chars), stress=stress,
                          lang=opts.lang or book.lang or "ru", pauses=opts.chunk.pauses,
                          speak_headings=opts.chunk.speak_headings, local_engine=not cloud, mixed=opts.chunk.mixed,

@@ -111,6 +111,8 @@ class CloudGenerator(VoiceGenerator):
     terms_url = ""
     docs_url = ""
     max_chars = 2000  # per request
+    # fragment size a render uses by default (never above max_chars); raise it where requests are the bottleneck
+    fragment_chars = 300
     retries = 4
     server_pauses = (3.0, 15.0)  # seconds before the 1st and 2nd re-send after a 5xx
 
@@ -163,7 +165,8 @@ class CloudGenerator(VoiceGenerator):
         return {"name": cls.name, "label": cls.label or cls.name, "modes": list(cls.modes),
                 "languages": list(cls.languages), "key_env": cls.key_env, "price_note": cls.price_note,
                 "terms_url": cls.terms_url, "docs_url": cls.docs_url, "commercial": cls.commercial,
-                "max_chars": cls.max_chars, "blurb": cls.blurb, "alt_note": cls.alt_note,
+                "max_chars": cls.max_chars, "fragment_chars": min(cls.fragment_chars, cls.max_chars),
+                "blurb": cls.blurb, "alt_note": cls.alt_note,
                 "voices_note": cls.voices_note,
                 "models": list(cls.models), "style": cls.style, "voice_scopes": list(getattr(cls, "scopes", ())),
                 "voice_langs": list(getattr(cls, "voice_languages", ())),

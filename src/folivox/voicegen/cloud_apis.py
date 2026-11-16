@@ -56,6 +56,10 @@ class Gemini(CloudGenerator):
     terms_url = "https://ai.google.dev/gemini-api/terms"
     docs_url = "https://ai.google.dev/gemini-api/docs/generate-content/speech-generation"
     max_chars = 4000
+    # Gemini's free and tier-1 quotas count requests per day (100), so fewer, longer requests matter more than they
+    # do elsewhere. Tests on Russian passages with 0.9k–2.4k characters per request (Flash and Flash-Lite) showed
+    # no loss of text (CER 0.004–0.013, same as 300-character fragments) and a steadier pace.
+    fragment_chars = 3000
     models = (_model("gemini-3.8-flash-tts", "Gemini 3.8 Flash TTS", "newest; also designs voices"),
               _model("gemini-3.8-flash-lite-tts", "Gemini 3.8 Flash-Lite TTS", "cheaper"),
               _model("gemini-3.1-flash-tts-preview", "Gemini 3.1 Flash TTS (preview)"),

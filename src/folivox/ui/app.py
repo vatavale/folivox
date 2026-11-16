@@ -1021,7 +1021,7 @@ def create_app(token: str | None = None, port: int | None = None, data_dir: Path
         markup = markup_file(str(body.get("book_id", "")))
         common = dict(voice_wav=v.path if v else None,
                       voice_text=body.get("voice_text") or (v.transcript if v else None), lang=book.lang, **cloud_opts,
-                      depth=int(o.get("depth", 2)), max_chars=int(o.get("max_chars", 300)), stress=stress,
+                      depth=int(o.get("depth", 2)), max_chars=int(o.get("max_chars") or 0) or None, stress=stress,
                       speed=float(o.get("speed", 1.0)), qa=bool(o.get("qa", True)),
                       qa_threshold=QA_LEVELS.get(str(o.get("qa_level")), QA_LEVELS["standard"]),
                       max_takes=int(o.get("takes") or (2 if cloud else 3)),

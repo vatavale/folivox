@@ -144,6 +144,11 @@ class CloudTTS(TTSEngine):
         limits = getattr(type(self.gen), "LIMITS", None)
         return (limits or {}).get(self.model, self.gen.max_chars)
 
+    @property
+    def fragment_chars(self) -> int:
+        """Fragment size used when the user did not choose one."""
+        return min(getattr(self.gen, "fragment_chars", 300), self.max_chars)
+
     def estimate_usd(self, chars: int, mode: str = "preset") -> float | None:
         chars = int(chars * type(self.gen).bytes_factor(self.lang))
         return type(self.gen).estimate_for(chars, 1, mode, self.model).get("usd")

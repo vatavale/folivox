@@ -2559,7 +2559,7 @@ async function engKeysChanged() {  // an API key was saved or removed in the set
 function optionsVisibility() {
   const cloud = ENG.cloud(), qaOn = $("#o-qa").value === "1", ru = !book || book.lang === "ru";
   const row = (id, show) => { $("#" + id).parentElement.hidden = !show; };
-  row("o-speed", !cloud); row("o-max_chars", !cloud); row("o-device", !cloud && !(rtNative() && (ENG.cur() || {}).name === "cosyvoice3"));
+  row("o-speed", !cloud); row("o-max_chars", true); row("o-device", !cloud && !(rtNative() && (ENG.cur() || {}).name === "cosyvoice3"));
   row("o-stress", !cloud && ru); row("o-takes", qaOn); row("o-qa_level", qaOn);
 }
 $("#o-qa").addEventListener("change", optionsVisibility);
@@ -2571,6 +2571,7 @@ function engChange() {
   $("#v-local").hidden = false;
   $("#eng-ack").checked = false; ENG.vlang = undefined; ENG.sel = null; $("#vc-saved").hidden = true;
   $("#o-takes").value = e.cloud ? 2 : 3;
+  $("#o-max_chars").value = e.cloud ? (e.fragment_chars || 300) : 300;  // the engine's own default; the field stays editable
   $("#o-qa").value = e.cloud ? "0" : "1";  // an online voice rarely misreads; the check costs a retake each time and loads a local model
   clearTimeout(ENG.tm); optionsVisibility(); ENG.est = null; $("#eng-est").textContent = ""; runSummary();
   $("#o-takes").parentElement.title = e.cloud ? t("eng.retakebilled") : "";
