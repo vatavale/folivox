@@ -606,8 +606,8 @@ def test_server_env_puts_bundled_cuda_libraries_first(tmp_path, monkeypatch):
     (tmp_path / "lib").mkdir()
     (tmp_path / "lib" / "libcudart.so.12").write_bytes(b"")
     env = ns.server_env(tmp_path / "audiocpp_server", base={"LD_LIBRARY_PATH": "/opt/x"})
-    parts = env["LD_LIBRARY_PATH"].split(":")
-    assert parts[0] == str(tmp_path / "lib") and parts[-1] == "/opt/x"
+    value = env["LD_LIBRARY_PATH"]  # not split on ":": a Windows path has one after the drive letter
+    assert value.startswith(str(tmp_path / "lib") + ":") and value.endswith(":/opt/x")
     monkeypatch.setattr(ns.sys, "platform", "win32")
     assert "LD_LIBRARY_PATH" not in ns.server_env(tmp_path / "audiocpp_server", base={})
 
