@@ -88,7 +88,7 @@ def test_cost_estimate_and_cap_resume(tmp_path):
 
     eng, fake = engine("openai", max_cost=0.012)  # roughly 600 characters
     voice = eng.make_voice("coral", None, "en")
-    opts, j, ev = run(tmp_path, eng, voice)
+    opts, j, ev = run(tmp_path, eng, voice, max_chars=300)  # several fragments, not one joined request
     with pytest.raises(CostCapReached):
         synthesize_pending(j, eng, voice, None, opts, ev)
     done = len(j.chunks()) - len(j.pending())
