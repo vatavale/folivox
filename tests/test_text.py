@@ -145,3 +145,51 @@ def test_online_engines_can_join_paragraphs_into_one_request():
     # the size limit still holds
     tight = plan_chapter(chapter, ChunkOptions(max_chars=30, join_paragraphs=True, **base))
     assert all(len(c.text) <= 30 for c in tight)
+
+
+def _joined(blocks, limit=2000):
+    from folivox.book import Chapter
+    from folivox.text.chunk import ChunkOptions, plan_chapter
+
+    opts = ChunkOptions(max_chars=limit, join_paragraphs=True, stress="none", speak_headings=False,
+                        local_engine=False, min_chars=5)
+    return plan_chapter(Chapter("c", blocks), opts)
+
+
+def _narration(n: int, size: int):
+    from folivox.book import Block, BlockKind
+
+    sentence = "Она шла по длинной улице и думала о своём. "
+    return [Block(BlockKind.PARAGRAPH, f"Абзац {i}. " + sentence * (size // len(sentence))) for i in range(n)]
+
+
+def test_joining_keeps_a_conversation_whole_and_starts_the_narration_after_it_anew():
+    from folivox.book import Block, BlockKind
+
+    talk = [Block(BlockKind.PARAGRAPH, f"— Реплика номер {i}, довольно короткая, но не совсем. — сказал он.")
+            for i in range(9)]
+    out = _joined(talk + _narration(3, 900))
+    # not «the whole conversation + one paragraph», then the rest
+    assert out[0].text.count("Реплика") == 9 and "Абзац" not in out[0].text
+    assert all("Реплика" not in c.text for c in out[1:])
+    assert "\n" in out[0].text and "\n\n" not in out[0].text  # replies are separated by a line break
+
+
+def test_joining_never_splits_a_poem_that_fits_one_request():
+    from folivox.book import Block, BlockKind
+
+    stanza = "Мороз и солнце; день чудесный!\nЕще ты дремлешь, друг прелестный —"
+    poem = [Block(BlockKind.POEM, stanza) for _ in range(4)]
+    out = _joined(_narration(2, 900) + poem + _narration(1, 300))  # the poem does not fit after the prose
+    holding = [c for c in out if "Мороз" in c.text]
+    assert len(holding) == 1 and holding[0].text.count("Мороз") == 4
+
+
+def test_joining_splits_a_long_passage_evenly_and_keeps_every_word_in_order():
+    blocks = _narration(5, 900)
+    out = _joined(blocks)
+    sizes = [len(c.text) for c in out]
+    assert len(out) == 3 and max(sizes) <= 2000 and min(sizes) > 800  # 2 + 2 + 1 paragraphs, not 2 + 2 + scraps
+    alone = _joined(blocks, limit=300)
+    words = lambda cs: " ".join(c.text for c in cs).split()  # noqa: E731
+    assert words(out) == words(alone)

@@ -76,6 +76,8 @@ class Chunk:
     speaker: int = 0  # who reads it (0 = narrator); see folivox.markup
     markup: str = ""  # expression tags written in front of the text, e.g. "[sighs]" (part of the cache key)
     lang: str = ""  # the fragment's language when it is not the book's ("" = the book's)
+    block: int = -1  # the chapter block it comes from (-1: a chapter heading); used to join fragments
+    role: str = ""  # "dialogue", "poem" or "text": what kind of passage the block is, for joining
 
 
 @dataclass
@@ -220,23 +222,166 @@ def _plan_segments(raw, segs, ctx, end_pause, opts, normalize, dialogue, p) -> N
                         tags if j == 0 else "", lang))
 
 
-def join_chunks(chunks: list[Chunk], opts: ChunkOptions) -> list[Chunk]:
-    """Merge neighbouring running-text fragments up to ``max_chars``, so an online engine gets a few long requests
-    instead of one per paragraph. The silence between the merged paragraphs is then up to the voice model (a blank
-    line asks for a paragraph pause). Headings, scene breaks, the end of a chapter, another speaker or language and
-    fragments with expression tags are never merged: they keep their own request and pause."""
-    p = opts.pauses
-    out: list[Chunk] = []
-    for c in chunks:
-        prev = out[-1] if out else None
-        if (prev is not None and prev.kind == c.kind == "p" and prev.speaker == c.speaker and prev.lang == c.lang
-                and not prev.markup and not c.markup and prev.pause_after <= max(p.sentence, p.paragraph, p.dialogue)
-                and len(prev.text) + 2 + len(c.text) <= opts.max_chars):
-            sep = " " if prev.pause_after <= p.sentence else "\n" if prev.pause_after <= p.dialogue else "\n\n"
-            prev.text, prev.source = f"{prev.text}{sep}{c.text}", f"{prev.source}{sep}{c.source}"
-            prev.pause_after = c.pause_after
+_QUOTE_START = tuple("«“„\"‹「『")
+
+
+def _role(block: Block) -> str:
+    if block.kind == BlockKind.POEM:
+        return "poem"
+    if _is_dialogue(block) or block.text.lstrip().startswith(_QUOTE_START):
+        return "dialogue"
+    return "text"
+
+
+def _size(units) -> int:
+    return sum(u.size for u in units) + 2 * max(0, len(units) - 1)
+
+
+@dataclass
+class _Unit:
+    """A block (paragraph, line of dialogue, stanza), or one piece of a block too long for a single request."""
+    chunks: list
+    role: str
+
+    @property
+    def size(self) -> int:
+        return sum(len(c.text) for c in self.chunks) + max(0, len(self.chunks) - 1)
+
+
+def _balanced(units: list, limit: int) -> list[list]:
+    """Split ``units`` (in order) into as few groups as fit ``limit``, as even in size as possible: a long passage
+    becomes two halves rather than a full request and a scrap."""
+    if _size(units) <= limit:
+        return [units]
+    k = 1  # the fewest groups, from a greedy fill
+    size = -2
+    for u in units:
+        size += u.size + 2
+        if size > limit:
+            k, size = k + 1, u.size
+    n, inf = len(units), float("inf")
+    pre = [0]
+    for u in units:
+        pre.append(pre[-1] + u.size)
+
+    def cost(a: int, b: int) -> int:  # units a..b-1 in one group
+        return pre[b] - pre[a] + 2 * (b - a - 1)
+
+    while True:
+        best = [[inf] * (n + 1) for _ in range(k + 1)]  # best[g][j]: smallest largest group, j units in g groups
+        cut = [[0] * (n + 1) for _ in range(k + 1)]
+        best[0][0] = 0
+        for g in range(1, k + 1):
+            for b in range(1, n + 1):
+                for a in range(g - 1, b):
+                    c = cost(a, b)
+                    if c > limit:
+                        continue
+                    v = max(best[g - 1][a], c)
+                    if v < best[g][b]:
+                        best[g][b], cut[g][b] = v, a
+        if best[k][n] < inf or k >= n:
+            break
+        k += 1
+    if best[k][n] == inf:  # a unit larger than the limit: keep every unit apart
+        return [[u] for u in units]
+    groups, b = [], n
+    for g in range(k, 0, -1):
+        a = cut[g][b]
+        groups.append(units[a:b])
+        b = a
+    return groups[::-1]
+
+
+def _pack_passage(units: list, limit: int) -> list[list]:
+    """Group the blocks of one passage (between headings, scene breaks and changes of speaker) into requests.
+
+    The passage is read as sections of one kind: a run of dialogue (short narration lines between replies count
+    as dialogue), a poem, a run of narrative paragraphs. A section that fits one request is never split, and a
+    request ends where one section ends and another begins, unless the next section fits in the same request
+    entirely. So a conversation goes in one piece and the narration after it starts a new request, rather than
+    the conversation plus one paragraph and then the rest. A section longer than a request is split evenly at
+    block boundaries."""
+    for i in range(1, len(units) - 1):  # «Помолчали.» between two lines of dialogue belongs to the conversation
+        if units[i].role == "text" and units[i].size <= 120 and units[i - 1].role == units[i + 1].role == "dialogue":
+            units[i].role = "dialogue"
+    sections: list[list] = []
+    for u in units:
+        if sections and sections[-1][-1].role == u.role:
+            sections[-1].append(u)
         else:
-            out.append(replace(c, index=len(out)))
+            sections.append([u])
+    parts: list[list] = []
+    carry: list = []
+    for sec in sections:
+        if not carry or _size(carry) + 2 + _size(sec) <= limit:
+            if _size(carry + sec) <= limit:
+                carry += sec
+                continue
+        if _size(sec) <= limit:  # the section fits on its own: keep it whole
+            if carry:
+                parts.append(carry)
+            carry = sec
+            continue
+        if carry and _size(carry) >= limit // 4:  # a long section starts a request of its own
+            parts.append(carry)
+            carry = []
+        groups = _balanced(carry + sec, limit)
+        parts += groups[:-1]
+        carry = groups[-1]
+    if carry:
+        parts.append(carry)
+    # a scrap of a request (one short line) goes with the request before it when that still fits
+    out: list[list] = []
+    for g in parts:
+        if out and _size(g) < limit // 8 and _size(out[-1]) + 2 + _size(g) <= limit:
+            out[-1] = out[-1] + g
+        else:
+            out.append(g)
+    return out
+
+
+def join_chunks(chunks: list[Chunk], opts: ChunkOptions) -> list[Chunk]:
+    """Merge fragments of running text into longer requests for an online engine (up to ``max_chars``), choosing
+    the cuts by sense rather than filling each request to the limit (see :func:`_pack_passage`). The silence
+    between merged blocks is then up to the voice model (a line break between replies, a blank line between
+    paragraphs). Headings, scene breaks, the end of a chapter, another speaker or language and fragments with
+    expression tags always start a new request and keep their own pause."""
+    p = opts.pauses
+    soft = max(p.sentence, p.paragraph, p.dialogue)
+    limit = opts.max_chars
+
+    def linked(a: Chunk, b: Chunk) -> bool:
+        return (a.kind in ("p", "poem") and b.kind in ("p", "poem") and not a.markup and not b.markup
+                and a.speaker == b.speaker and a.lang == b.lang and a.pause_after <= soft)
+
+    passages: list[list[Chunk]] = []
+    for c in chunks:
+        if passages and linked(passages[-1][-1], c):
+            passages[-1].append(c)
+        else:
+            passages.append([c])
+    out: list[Chunk] = []
+    for passage in passages:
+        units: list[_Unit] = []
+        for c in passage:
+            if units and units[-1].chunks[-1].block == c.block and c.block >= 0:
+                units[-1].chunks.append(c)
+            else:
+                units.append(_Unit([c], c.role or "text"))
+        flat: list[_Unit] = []
+        for u in units:  # a block too long for one request stays in its pieces
+            flat += [_Unit([c], u.role) for c in u.chunks] if u.size > limit else [u]
+        for group in _pack_passage(flat, limit):
+            parts = [c for u in group for c in u.chunks]
+            first = parts[0]
+            text, source = first.text, first.source
+            for prev, c in zip(parts, parts[1:], strict=False):
+                sep = " " if prev.block == c.block else "\n" if prev.role == c.role == "dialogue" else "\n\n"
+                text, source = f"{text}{sep}{c.text}", f"{source}{sep}{c.source}"
+            kind = "poem" if all(c.kind == "poem" for c in parts) else first.kind
+            out.append(replace(first, index=len(out), text=text, source=source, pause_after=parts[-1].pause_after,
+                               kind=kind))
     return out
 
 
@@ -253,44 +398,55 @@ def plan_chapter(chapter: Chapter, opts: ChunkOptions | None = None, ctx: Markup
                 raw.append((normalize(_heading_text(h)), p.heading, "heading", 0, "", ""))
 
     blocks = chapter.blocks
+    where: dict[int, tuple[int, str]] = {}  # raw index → (block, role)
     for i, b in enumerate(blocks):
-        if not has_speech(b.text):  # scene break «* * *»
-            if raw:
-                text, pause, kind, spk, tg, lg = raw[-1]
-                raw[-1] = (text, max(pause, p.scene), kind, spk, tg, lg)
-            continue
-        if b.kind == BlockKind.SUBTITLE:
-            raw.append((normalize(_heading_text(b.text)), p.heading, "heading", 0, "", ""))
-            continue
-        nxt = blocks[i + 1] if i + 1 < len(blocks) else None
-        end_pause = p.dialogue if (_is_dialogue(b) and nxt is not None and _is_dialogue(nxt)) else p.paragraph
-        if b.kind in (BlockKind.EPIGRAPH, BlockKind.AUTHOR) and not (nxt and nxt.kind in (
-                BlockKind.EPIGRAPH, BlockKind.AUTHOR)):
-            end_pause = p.heading
-        segs = None
-        if b.kind != BlockKind.POEM:
-            from folivox.markup import Markup
-
-            here = ctx or MarkupContext(Markup(), 0, False)  # no markup: only the script check can split a block
-            segs = here.markup.segments(here.chapter, i, b.text, opts.lang if opts.mixed else "")
-        if segs and (len(segs) > 1 or segs[0].speaker or segs[0].tags or segs[0].lang):
-            _plan_segments(raw, segs, here, end_pause, opts, normalize, dialogue, p)
-            continue
-        text = dialogue(normalize(_poem_text(b.text) if b.kind == BlockKind.POEM else b.text))
-        parts = pack(sentences(text, opts.lang), opts.max_chars, opts.min_chars)
-        for j, part in enumerate(parts):
-            raw.append((dialogue(part), end_pause if j == len(parts) - 1 else p.sentence, b.kind.value, 0, "", ""))
+        start = len(raw)
+        _plan_block(i, b, blocks, raw, opts, ctx, p, normalize, dialogue)
+        for k in range(start, len(raw)):
+            where[k] = (i, _role(b))
 
     chunks: list[Chunk] = []
-    for text, pause, kind, speaker, tags, lang in raw:
+    for k, (text, pause, kind, speaker, tags, lang) in enumerate(raw):
         if not has_speech(text):
             continue
         tts, source = finalize(text, replace(opts, lang=lang) if lang else opts)
         if tags:
             tts = f"{tags} {tts}"
-        chunks.append(Chunk(len(chunks), tts, source, pause, kind, speaker, tags, lang))
+        block, role = where.get(k, (-1, ""))
+        chunks.append(Chunk(len(chunks), tts, source, pause, kind, speaker, tags, lang, block, role))
     if opts.join_paragraphs:
         chunks = join_chunks(chunks, opts)
     if chunks:
         chunks[-1].pause_after = p.chapter_end
     return chunks
+
+
+def _plan_block(i, b, blocks, raw, opts, ctx, p, normalize, dialogue) -> None:
+    """Raw fragments of block ``i`` (appended to ``raw``); a scene break only lengthens the pause before it."""
+    if not has_speech(b.text):  # scene break «* * *»
+        if raw:
+            text, pause, kind, spk, tg, lg = raw[-1]
+            raw[-1] = (text, max(pause, p.scene), kind, spk, tg, lg)
+        return
+    if b.kind == BlockKind.SUBTITLE:
+        raw.append((normalize(_heading_text(b.text)), p.heading, "heading", 0, "", ""))
+        return
+    nxt = blocks[i + 1] if i + 1 < len(blocks) else None
+    end_pause = p.dialogue if (_is_dialogue(b) and nxt is not None and _is_dialogue(nxt)) else p.paragraph
+    if b.kind in (BlockKind.EPIGRAPH, BlockKind.AUTHOR) and not (nxt and nxt.kind in (
+            BlockKind.EPIGRAPH, BlockKind.AUTHOR)):
+        end_pause = p.heading
+    segs = None
+    if b.kind != BlockKind.POEM:
+        from folivox.markup import Markup
+
+        here = ctx or MarkupContext(Markup(), 0, False)  # no markup: only the script check can split a block
+        segs = here.markup.segments(here.chapter, i, b.text, opts.lang if opts.mixed else "")
+    if segs and (len(segs) > 1 or segs[0].speaker or segs[0].tags or segs[0].lang):
+        _plan_segments(raw, segs, here, end_pause, opts, normalize, dialogue, p)
+        return
+    text = dialogue(normalize(_poem_text(b.text) if b.kind == BlockKind.POEM else b.text))
+    parts = pack(sentences(text, opts.lang), opts.max_chars, opts.min_chars)
+    for j, part in enumerate(parts):
+        raw.append((dialogue(part), end_pause if j == len(parts) - 1 else p.sentence, b.kind.value, 0, "", ""))
+
