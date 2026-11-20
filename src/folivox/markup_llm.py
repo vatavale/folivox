@@ -293,6 +293,42 @@ def cache_path(book_path: Path) -> Path:
 
 # -- cache and calls -------------------------------------------------------------------------------------------
 
+class Prompt(str):
+    """A prompt as every provider gets it (the string itself), plus the same text in *cache order* for a provider that
+    caches a stable prefix (:attr:`blocks`: ``(text, cache breakpoint after it)``). The instructions come first, then
+    the character list, then what changes with every window; only the order differs, never the words."""
+
+    blocks: tuple[tuple[str, bool], ...] = ()
+
+    def __new__(cls, text: str, blocks=()):
+        p = super().__new__(cls, text)
+        p.blocks = tuple(blocks)
+        return p
+
+    def __add__(self, other: str) -> Prompt:  # a retry's reminder goes at the end of both forms
+        if not self.blocks:
+            return Prompt(str(self) + other)
+        *head, (last, mark) = self.blocks
+        return Prompt(str(self) + other, (*head, (last + other, mark)))
+
+
+def _cut(template: str, *anchors: str) -> list[str]:
+    """A template cut before each anchor (the pieces joined give the template back)."""
+    out, rest = [], template
+    for a in anchors:
+        i = rest.index(a)
+        out.append(rest[:i])
+        rest = rest[i:]
+    return [*out, rest]
+
+
+def _render(pieces: list[str], order: list[tuple[list[int], bool]], **fields) -> Prompt:
+    """The template (``pieces`` in their own order) and its cache order: groups of pieces, each with a breakpoint."""
+    return Prompt("".join(pieces).format(**fields),
+                  [("".join(pieces[i] for i in group).format(**fields), mark) for group, mark in order])
+
+
+
 class Cache:
     """Model replies by hash of (model, prompt version, prompts): an interrupted run continues where it stopped
     and an unchanged window is never asked twice."""
@@ -348,13 +384,15 @@ class Runner:
             self.sleep(step)
             seconds -= step
 
-    def _complete(self, prompt: str, system: str, temperature: float) -> str:
+    def _complete(self, prompt: str, system: str, temperature: float, schema: dict | None = None) -> str:
         """One model reply; waits out a busy server, fails at once on a wrong key, model name or URL.
 
         A request the server refuses for its content (400, 413, 422: too long a window, say) raises ValueError,
         so the caller's retries and fallbacks handle it like a bad reply."""
         for attempt in range(self.BUSY_TRIES):
             try:
+                if schema is not None and getattr(self.llm, "structured", False):  # the backend enforces the shape
+                    return self.llm.complete_json(prompt, system=system, temperature=temperature, schema=schema)
                 return self.llm.complete_json(prompt, system=system, temperature=temperature)
             except urllib.error.HTTPError as e:
                 code = e.code
@@ -386,9 +424,10 @@ class Runner:
                 break
         raise last
 
-    def ask(self, system: str, prompt: str, validate: Callable[[dict], dict]) -> dict:
-        """Reply parsed and checked by ``validate`` (which raises ValueError on a bad one)."""
-        key = hashlib.sha1("\x1f".join((PROMPT_VERSION, self.model, system, prompt)).encode()).hexdigest()
+    def ask(self, system: str, prompt: str, validate: Callable[[dict], dict], schema: dict | None = None) -> dict:
+        """Reply parsed and checked by ``validate`` (which raises ValueError on a bad one). ``schema``: the JSON shape
+        the prompt asks for, for a backend that can enforce it (structured outputs)."""
+        key = hashlib.sha1("\x1f".join((PROMPT_VERSION, self.model, system, str(prompt))).encode()).hexdigest()
         hit = self.cache.get(key)
         if hit is not None:
             try:
@@ -404,7 +443,7 @@ class Runner:
             extra = ("" if attempt == 0 else last.retry_note() if isinstance(last, ShortReply)
                      else "\n\nYour previous answer was not valid. Answer with the JSON object only.")
             try:
-                reply = self._complete(prompt + extra, system, 0.1 + 0.2 * attempt)
+                reply = self._complete(prompt + extra, system, 0.1 + 0.2 * attempt, schema)
                 out = validate(extract_json(reply))
             except ShortReply as e:
                 last = e
@@ -499,6 +538,52 @@ Excerpt:
 {text}"""
 
 
+# the cache order for a backend that caches a stable prefix: the instructions, then the characters and the excerpt.
+# The characters met so far change from almost every window to the next while the book is read, so they are not
+# cached (measured: writing them each time cost more than the rare reads saved).
+_ANALYSE = _cut(ANALYSE_PROMPT, "Characters already known", "Read the excerpt", "Excerpt:\n")
+_ANALYSE_ORDER = [([0, 2], True), ([1, 3], False)]
+
+
+def _obj(**props) -> dict:
+    """A JSON-schema object with every property required and nothing else allowed (structured outputs)."""
+    return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
+
+
+_S, _I, _B = {"type": "string"}, {"type": "integer"}, {"type": "boolean"}
+# the shapes the prompts ask for, for a backend that can enforce them (the annotate answer maps part numbers to
+# speakers, an object with free keys that structured outputs cannot express: it is checked here instead)
+ANALYSE_SCHEMA = _obj(
+    narration_person={"type": "string", "enum": ["first", "third", "mixed"]},
+    characters={"type": "array", "items": _obj(
+        name=_S, aliases={"type": "array", "items": _S}, gender={"type": "string", "enum": ["f", "m", "n", "?"]},
+        role={"type": "string", "enum": ["main", "minor"]},
+        age={"type": "string", "enum": ["child", "young", "adult", "old", "?"]}, traits=_S,
+        relations={"type": "array", "items": _obj(**{"with": _S, "kind": _S})}, lines=_I, unnamed=_B)})
+SAME_SCHEMA = _obj(same={"type": "array", "items": {"type": "array", "items": _S}})
+LOOK_SCHEMA = _obj(gender={"type": "string", "enum": ["f", "m", "n", "?"]},
+                   age={"type": "string", "enum": ["child", "young", "adult", "old", "?"]}, traits=_S)
+MAX_STABLE = 60  # at most this many characters in the whole list a caching backend gets instead of the relevant ones
+
+
+def analyse_prompt(**fields) -> Prompt:
+    return _render(_ANALYSE, _ANALYSE_ORDER, **fields)
+
+
+def speakers_for(bible: Bible, text: str, recent: list[str], stable: bool = False) -> list[Character]:
+    """The speakers sent with a window to mark: those relevant to it, or (``stable``, for a backend that caches the
+    prompt's start) every speaker by id, a list that stays the same from window to window once the book is read."""
+    if stable:
+        everyone = sorted((c for c in bible.characters if c.id), key=lambda c: (c.id, c.first, c.name))
+        if len(everyone) <= MAX_STABLE:
+            return everyone
+    return relevant_for(bible, text, recent)
+
+
+def _caches(runner) -> bool:
+    return bool(getattr(runner.llm, "caches_prompts", False))
+
+
 def _known(bible: Bible, relevant: list[Character]) -> str:
     rows = [{"name": c.name, "aliases": c.aliases[:6], "gender": c.gender or "?", "age": c.age or "?",
              "role": c.role, "speaks": c.traits[:50]} for c in relevant]
@@ -545,8 +630,8 @@ def analyse(chapters: list, lang: str, runner: Runner, bible: Bible | None = Non
         if n < bible.done_windows:
             continue
         text = w.text()
-        prompt = ANALYSE_PROMPT.format(lang=LANG_NAMES.get(lang, lang), hints=QUOTE_HINTS,
-                                       known=_known(bible, relevant_for(bible, text, recent)), text=text)
+        prompt = analyse_prompt(lang=LANG_NAMES.get(lang, lang), hints=QUOTE_HINTS,
+                                known=_known(bible, relevant_for(bible, text, recent)), text=text)
 
         def check(d: dict) -> dict:
             if not isinstance(d.get("characters"), list):
@@ -554,7 +639,7 @@ def analyse(chapters: list, lang: str, runner: Runner, bible: Bible | None = Non
             return d
 
         try:
-            out = runner.ask(ANALYSE_SYSTEM, prompt, check)
+            out = runner.ask(ANALYSE_SYSTEM, prompt, check, schema=ANALYSE_SCHEMA)
         except ValueError as e:
             if progress:
                 progress("analyse", n + 1, len(wins), f"window {n + 1} skipped: {e}")
@@ -667,7 +752,7 @@ def consolidate(chapters: list, lang: str, bible: Bible, runner: Runner, *, max_
                            for c in names[:60]], ensure_ascii=False)
         try:
             out = runner.ask(CONSOLIDATE_SYSTEM, MERGE_PROMPT.format(lang=LANG_NAMES.get(lang, lang), rows=rows),
-                             _same_list)
+                             _same_list, schema=SAME_SCHEMA)
         except ValueError:
             out = {"same": []}
         for group in out["same"]:
@@ -704,7 +789,7 @@ def consolidate(chapters: list, lang: str, bible: Bible, runner: Runner, *, max_
             gender=c.gender or "unknown", age=c.age or "unknown", traits=c.traits[:80] or "-",
             snippets="\n".join(f"- {x}" for x in snippets))
         try:
-            out = runner.ask(CONSOLIDATE_SYSTEM, prompt, lambda d: d)
+            out = runner.ask(CONSOLIDATE_SYSTEM, prompt, lambda d: d, schema=LOOK_SCHEMA)
         except ValueError:
             continue
         g = str(out.get("gender") or "").strip().lower()[:1]
@@ -788,6 +873,16 @@ part even when it is narration."""
 PARTS_LANG_JSON = ', "lang": {{"<part number>": "<ISO 639-1 code>"}}'
 OTHER_LANG_SHARE = 0.02  # a language with at least this share of the book is worth asking the model about
 
+# cache order: instructions, then the speakers, then the context and the paragraphs (see Prompt)
+_PARTS = _cut(PARTS_PROMPT, "Speakers (id;", "{recent}\n", "Every paragraph below", "Paragraphs:\n")
+_ANNOTATE = _cut(ANNOTATE_PROMPT, "Speakers (id = marker", "{recent}\n", "For every numbered paragraph",
+                 "Paragraphs:\n")
+_MARK_ORDER = [([0, 3], True), ([1], True), ([2, 4], False)]
+
+
+def annotate_prompt(**fields) -> Prompt:
+    return _render(_ANNOTATE, _MARK_ORDER, **fields)
+
 
 def other_languages(chapters: list, lang: str) -> list[str]:
     """Languages besides ``lang`` that make up at least 2% of the book's letters (empty for a one-language book)."""
@@ -797,7 +892,7 @@ def other_languages(chapters: list, lang: str) -> list[str]:
     return [k for k, v in shares(text).items() if k != lang and v >= OTHER_LANG_SHARE]
 
 
-def parts_prompt(lang: str, others: list[str] | tuple[str, ...] = (), **fields) -> str:
+def parts_prompt(lang: str, others: list[str] | tuple[str, ...] = (), **fields) -> Prompt:
     """PARTS_PROMPT for a book in ``lang``; ``others`` (more languages in the book) adds the language question."""
     rule = json_part = ""
     if others:
@@ -805,7 +900,7 @@ def parts_prompt(lang: str, others: list[str] | tuple[str, ...] = (), **fields) 
         rule = PARTS_LANG_RULE.format(lang=LANG_NAMES.get(lang, lang), others=", ".join(names),
                                       example="en" if lang != "en" else others[0])
         json_part = PARTS_LANG_JSON
-    return PARTS_PROMPT.format(lang=LANG_NAMES.get(lang, lang), lang_rule=rule, lang_json=json_part, **fields)
+    return _render(_PARTS, _MARK_ORDER, lang=LANG_NAMES.get(lang, lang), lang_rule=rule, lang_json=json_part, **fields)
 
 
 def part_languages(text: str, parts: list[tuple[int, int]], claimed: object, book_lang: str) -> list[str]:
@@ -1047,7 +1142,7 @@ def second_opinion(chapters: list, lang: str, bible: Bible, runner: Runner, mark
         before = "\n".join(spoke(j) for j in range(max(0, b - 6), b)) or "(none)"
         after = "\n".join(f"[B{j}] {ch.blocks[j].text[:220]}"
                           for j in range(b + 1, min(len(ch.blocks), b + 3))) or "(none)"
-        relevant = relevant_for(bible, text + " " + before, [])
+        relevant = speakers_for(bible, text + " " + before, [], _caches(runner))
         note = PARTS_NOTE.format(b=b, why=_why(r), before=before, after=after)
         prompt = parts_prompt(lang, others, hints=QUOTE_HINTS, person=bible.narration or "third",
                               speakers=_speakers_json(bible, relevant), recent=note, text=parts_text([(b, text)]))
@@ -1136,7 +1231,7 @@ def annotate(chapters: list, lang: str, bible: Bible, runner: Runner, markup: mk
         if cancelled():
             break
         text = w.text()
-        relevant = relevant_for(bible, text, recent_names)
+        relevant = speakers_for(bible, text, recent_names, _caches(runner))
         recent = ""
         if recent_ctx:
             recent = "Context, the previous paragraphs and who spoke them:\n" + "\n".join(recent_ctx[-4:]) + "\n"
@@ -1144,7 +1239,7 @@ def annotate(chapters: list, lang: str, bible: Bible, runner: Runner, markup: mk
             prompt = parts_prompt(lang, others, hints=QUOTE_HINTS, person=bible.narration or "third",
                                   speakers=_speakers_json(bible, relevant), recent=recent, text=parts_text(w.blocks))
         else:
-            prompt = ANNOTATE_PROMPT.format(
+            prompt = annotate_prompt(
                 lang=LANG_NAMES.get(lang, lang), hints=QUOTE_HINTS, person=bible.narration or "third",
                 speakers=_speakers_json(bible, relevant), recent=recent, text=text,
                 expression=EXPRESSION_RULES.format(tags=tag_list) if expression_tags else "")

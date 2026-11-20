@@ -9,7 +9,7 @@ folivox providers        # what is available and selected
 | `tts` | `cosyvoice3` | `fish-s2`, `fish-drama3` ([Fish Audio engines](fish-engines.md): optional download, own licence), and the paid cloud engines |
 | `asr` | `auto` (mlx-whisper / faster-whisper) | `openai` (any OpenAI-compatible transcription API) |
 | `voicegen` | `qwen3-voicedesign`, `qwen3-customvoice` | `gemini`, `openai`, `elevenlabs`, `cartesia`, `fish` |
-| `llm` | `ollama` | `openai` (OpenAI, OpenRouter, llama.cpp server… any OpenAI-compatible API) |
+| `llm` | `ollama` | `openai` (OpenAI, OpenRouter, llama.cpp server… any OpenAI-compatible API), `anthropic` (Claude through Anthropic's API, with prompt caching) |
 
 Choose with CLI options, `FOLIVOX_TTS` / `FOLIVOX_ASR` / `FOLIVOX_VOICEGEN` / `FOLIVOX_LLM`, or a
 `config.toml` in the user config directory (`$FOLIVOX_CONFIG` overrides the path):
@@ -29,6 +29,10 @@ model = "~/qwen3tts/models/VoiceDesign"   # Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
 base_url = "https://openrouter.ai/api/v1"
 model = "some/model"
 api_key_env = "OPENROUTER_API_KEY"
+
+[llm.anthropic]                       # pip install 'folivox[anthropic]'; key: ANTHROPIC_API_KEY
+model = "claude-opus-5-5"             # or claude-sonnet-5-5, claude-haiku-5-5
+effort = "medium"                     # optional: low | medium | high | xhigh | max (unset: the model's default)
 ```
 
 **Inference runtime** is a separate, general switch (not a provider): `--runtime auto|pytorch|native`,

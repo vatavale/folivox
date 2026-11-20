@@ -19,6 +19,10 @@ Example::
     model = "some/model"
     api_key_env = "OPENROUTER_API_KEY"   # the key itself stays in the environment
 
+    [llm.anthropic]                  # Claude through Anthropic's API (key: ANTHROPIC_API_KEY)
+    model = "claude-opus-5-5"
+    effort = "medium"                # optional: low | medium | high | xhigh | max
+
     [voicegen.qwen3-voicedesign]
     python = "~/.local/share/tts-bench/qwen3tts/.venv/bin/python"
     model = "~/.local/share/tts-bench/qwen3tts/models/VoiceDesign"

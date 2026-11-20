@@ -130,8 +130,8 @@ folivox markup auto book.epub                # mark the speakers (--chapters 1-3
 
 **Models.** Gemma 4 is multilingual and comes in sizes for different memory; Folivox proposes the largest that
 fits (`gemma4:31b-it-qat` from 48 GB, `26b-a4b-it-qat` from 32 GB, `12b-it-qat` for everything smaller) and
-you can use any other Ollama model, or an OpenAI-compatible API (`--llm openai --model NAME`, your key, the text
-goes to that service). Set a default in `config.toml`: `[llm.ollama] model = "gemma4:12b-it-qat"`. The analysis
+you can use any other Ollama model, an OpenAI-compatible API (`--llm openai --model NAME`), or Claude through
+Anthropic's own API (`--llm anthropic`, below); with an API it is your key and the text goes to that service. Set a default in `config.toml`: `[llm.ollama] model = "gemma4:12b-it-qat"`. The analysis
 runs before the audio is made, never together with the voice model. Small models miss subtle speakers: check
 the result.
 
@@ -160,6 +160,19 @@ times faster, but unstable. `e2b` worked only on English (10/15) and returned un
 and Spanish (0/15); `e4b` handled all four languages (9-12/15) but the same English text gave 0/15 once and
 12/15 on the next run, and an unreliable result is worse than a slow one. A speaker tag with a missing bar
 (`<|speaker:1>`) is understood, and a paragraph that starts with a dialogue dash with no space after it (Spanish «—¿Vas?») counts as speech.
+
+**Claude through Anthropic's API** (`--llm anthropic`, `pip install 'folivox[anthropic]'`, key in
+`ANTHROPIC_API_KEY`, its `_FILE` form or the studio's keychain; `[llm.anthropic] model` and `effort` in
+`config.toml`, default `claude-opus-5-5`). The prompts are the same as for any other model, in another order: the
+instructions first, then (when marking) every speaker by id, then the context and the paragraphs. The first two are
+marked for Anthropic's prompt cache, so each later window of a pass reads them at a tenth of the input price or
+less. Measured on 33,000 characters of *Pride and Prejudice* (14 calls): a third of the prompt tokens came from the
+cache and the input cost fell by 31%, about $0.42 per 500,000-character book with Claude Sonnet 5.5 and $0.84 with
+Claude Opus 5.5 (the answers, which are most of the bill, cost the same). The character list sent while *reading* the
+book changes from almost every window to the next, so only the instructions are cached there. The analysis and the
+second look get structured outputs (the JSON shape is enforced); a refusal, or an answer cut off at the token limit,
+counts as an unusable answer (the narrator reads that window); on Claude Opus 5.5 and Sonnet 5.5 a refusal is first
+handed to Anthropic's fallback model on the server.
 
 **Memory of the book ("bible").** `analyse` goes through the book in windows of about 5000 characters. For each
 window the model gets the characters found so far (name, nicknames, gender, age and manner of speech of those named

@@ -73,7 +73,9 @@ ui = [
     "tomli-w>=1.0",
     "keyring>=25",   # API keys entered in the UI go to the OS keychain, never to a file
 ]
-all = ["folivox[tts,qa,ui,denoise]"]
+# Claude through Anthropic's own API: `--llm anthropic` for the markup (your key, billed to your account).
+anthropic = ["anthropic>=2.0"]
+all = ["folivox[tts,qa,ui,denoise,anthropic]"]
 
 [project.scripts]
 folivox = "folivox.cli:main"
@@ -84,7 +86,7 @@ Homepage = "https://github.com/vatavale/folivox"
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.5"]
 # what the unit tests need beyond the core (no torch)
-test = ["numpy<2", "soundfile>=0.12", "scipy>=1.10", "httpx>=0.27", "huggingface_hub>=0.24"]
+test = ["numpy<2", "soundfile>=0.12", "scipy>=1.10", "httpx>=0.27", "huggingface_hub>=0.24", "anthropic>=2.0"]
 
 [tool.uv]
 default-groups = ["dev", "test"]
