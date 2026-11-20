@@ -146,7 +146,8 @@ English, Russian, German and Spanish; counted: paragraphs whose quoted speech we
 | `gemma4:12b-it-qat` | repeat text | 15/15 | 15/15 | 3/15 | 12/15 | 1.2-1.6 min |
 | `gemma4:12b-it-qat` | **parts** | 15/15 | 15/15 | 15/15 | 14/15 | 0.8-1.2 min |
 
-One run each, so read it as a rough picture. The "parts" method (the default now) is both more accurate and faster,
+One run each, so read it as a rough picture (a larger, repeatable measurement on English novels, with any provider:
+[tools/markup_eval](../tools/markup_eval/README.md)). The "parts" method (the default now) is both more accurate and faster,
 and it is what lets the 12B model handle German and Spanish. The first version, which asked for a list with one
 speaker per part, did badly with 12B (7/15 on English): it miscounted the parts and forgot that a speech continues
 after the attribution; asking for a map of part number to speaker, with one example, fixed that.
