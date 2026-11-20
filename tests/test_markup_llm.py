@@ -162,6 +162,64 @@ def test_more_than_fifteen_speakers_share_the_last_ids():
     assert ids[:13] == list(range(1, 14)) and set(ids[13:]) <= {14, 15} and max(ids) <= 15
 
 
+class ShortLLM(FakeLLM):
+    """Answers the marking request for the first paragraph only and stops (seen with a small cloud model), for the
+    first ``times`` marking calls; the other passes answer as FakeLLM does."""
+
+    def __init__(self, times):
+        super().__init__()
+        self.times, self.marking = times, 0
+
+    def complete_json(self, prompt, system=None, temperature=0.2):
+        reply = super().complete_json(prompt, system, temperature)
+        if not system.startswith("You mark up books"):
+            return reply
+        self.marking += 1
+        if self.marking > self.times:
+            return reply
+        d = json.loads(reply)
+        d["blocks"] = d["blocks"][:1]
+        return json.dumps(d, ensure_ascii=False)
+
+
+def test_a_reply_that_leaves_out_paragraphs_with_speech_is_asked_again():
+    llm = ShortLLM(times=1)
+    markup, stats, bible = annotate(llm=llm)
+    spans = {(s.block, s.speaker) for s in markup.chapters[0].spans}
+    assert spans == {(1, bible.find("Анна").id), (2, bible.find("Борис").id)}  # P3 is marked after the retry
+    assert markup.chapters[0].review == [] and stats.short_windows == 0
+    assert llm.marking == 3  # two windows, one asked twice
+
+
+def test_a_reply_that_stays_short_keeps_what_it_answered_and_reports_the_rest(tmp_path):
+    cache = ml.Cache(tmp_path / "c.sqlite")
+    bible = run_analyse()[0]
+    runner = ml.Runner(ShortLLM(times=99), "fake-model", cache)
+    markup, stats = ml.annotate(CH, "ru", bible, runner)
+    assert {s.block for s in markup.chapters[0].spans} == {1}  # what it did answer is kept
+    assert markup.chapters[0].review == [{"b": 2, "code": "skipped"}]  # the rest is on the review list
+    assert stats.short_windows == 1 and stats.skipped == 1 and stats.failed_windows == 0
+    # the short reply was not cached: the next run asks again, and a full answer marks the paragraph
+    markup, stats = ml.annotate(CH, "ru", bible, ml.Runner(FakeLLM(), "fake-model", cache), markup)
+    assert {s.block for s in markup.chapters[0].spans} == {1, 2} and markup.chapters[0].review == []
+    assert stats.short_windows == 0 and stats.skipped == 0
+
+
+def test_cli_auto_reports_paragraphs_the_model_left_out(tmp_path, monkeypatch):
+    from folivox import cli_markup
+    from folivox.cli import app
+
+    book = tmp_path / "b.txt"
+    book.write_text("Глава 1\n\n" + "\n\n".join((P1, P2, P3, P4)) + "\n\nГлава 2\n\n" + P5 + "\n", encoding="utf-8")
+    monkeypatch.setattr(cli_markup, "_llm", lambda provider, model: (ShortLLM(times=99), "fake-model"))
+    r = CliRunner()
+    assert r.invoke(app, ["markup", "analyse", str(book)]).exit_code == 0
+    res = r.invoke(app, ["markup", "auto", str(book)])
+    assert res.exit_code == 0, res.output
+    out = " ".join(res.output.split())  # rich wraps long lines
+    assert "The model left out 1 paragraph(s) with speech (asked again, 1 window(s) stayed short)" in out
+
+
 def annotate(llm=None, bible=None, **kw):
     bible = bible or run_analyse()[0]
     llm = llm or FakeLLM()
