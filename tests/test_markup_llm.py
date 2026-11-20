@@ -467,3 +467,72 @@ def test_a_preview_reads_a_sample_and_a_full_run_starts_over():
     assert not b.sampled and b.done_windows == b.total_windows >= 2
     markup, _ = ml.annotate(CH, "ru", b, runner, max_windows=1)
     assert not any(c.done for c in markup.chapters.values())  # a sample does not mark a chapter as processed
+
+
+def test_a_shared_first_name_does_not_join_two_people_with_different_full_names():
+    bible = ml.Bible("en")
+    for e in ({"name": "Robert Cohn", "aliases": ["Robert", "Cohn"], "gender": "m", "lines": 30},
+              {"name": "Robert Prentiss", "aliases": ["Robert"], "gender": "m", "lines": 6},  # met without Cohn
+              {"name": "Darcy", "gender": "m", "lines": 4},
+              {"name": "Mr. Darcy", "aliases": ["Darcy"], "gender": "m", "lines": 2},
+              {"name": "Elizabeth Bennet", "aliases": ["Elizabeth"], "gender": "f", "lines": 5},
+              {"name": "Miss Elizabeth Bennet", "aliases": ["Elizabeth"], "gender": "f", "lines": 1}):
+        bible.merge(e)
+    assert [(c.name, c.lines) for c in bible.characters] == [
+        ("Robert Cohn", 30), ("Robert Prentiss", 6), ("Darcy", 6), ("Elizabeth Bennet", 6)]
+    bible.assign_ids()
+    assert bible.find("Robert Cohn").id != bible.find("Robert Prentiss").id
+
+
+class CastLLM(LLM):
+    """Reports the characters each excerpt names; asked which names are one person, gives ``same``."""
+
+    name = "fake"
+
+    def __init__(self, same=()):
+        self.same = [list(g) for g in same]
+
+    def complete(self, prompt, system=None, temperature=0.3):
+        return self.complete_json(prompt, system, temperature)
+
+    def complete_json(self, prompt, system=None, temperature=0.2):
+        if "groups of names" in prompt:
+            return json.dumps({"same": self.same})
+        if system.startswith("You know the whole book"):
+            return json.dumps({"gender": "m", "age": "adult", "traits": "dry"})
+        excerpt = prompt.split("Excerpt:\n")[-1]
+        chars = []
+        if "Cohn" in excerpt:
+            chars.append({"name": "Robert Cohn", "aliases": ["Robert", "Cohn"], "gender": "m", "lines": 2})
+        if "Prentiss" in excerpt:  # the model calls him "Robert" too
+            chars.append({"name": "Robert Prentiss", "aliases": ["Robert"], "gender": "m", "lines": 1})
+        return json.dumps({"narration_person": "first", "characters": chars})
+
+
+def test_reading_keeps_robert_prentiss_apart_from_robert_cohn():
+    text = ['"Hello," said Robert Cohn. "Robert is my name."', '"Good evening," said Robert Prentiss.']
+    chapters = [Chapter(f"Chapter {i}", [Block(BlockKind.PARAGRAPH, t * 3)]) for i, t in enumerate(text)]
+    bible = ml.analyse(chapters, "en", ml.Runner(CastLLM(), "m", ml.Cache(None)))
+    assert bible.total_windows == 2
+    assert [(c.name, c.lines) for c in bible.speakers()] == [("Robert Cohn", 2), ("Robert Prentiss", 1)]
+    assert len({c.id for c in bible.speakers()}) == 2
+
+
+def test_consolidate_joins_names_in_full_but_not_through_a_shared_first_name():
+    def bible():
+        return ml.Bible("en", characters=[
+            ml.Character("Robert Cohn", aliases=["Robert", "Cohn"], gender="m", lines=30),
+            ml.Character("Robert Prentiss", gender="m", lines=6),
+            ml.Character("Bob Cohn", gender="m", lines=3),
+            ml.Character("Fitzwilliam Darcy", gender="m", lines=8),
+            ml.Character("Darcy", gender="m", lines=2)])
+
+    same = [["Robert Prentiss", "Robert"], ["Robert Cohn", "Bob Cohn"], ["Fitzwilliam Darcy", "Darcy"]]
+    b = bible()
+    ml.consolidate([], "en", b, ml.Runner(CastLLM(same), "m", ml.Cache(None)), max_look=0)
+    assert [(c.name, c.lines) for c in b.characters] == [
+        ("Robert Cohn", 33), ("Robert Prentiss", 6), ("Fitzwilliam Darcy", 10)]
+    b = bible()
+    b.characters[1].aliases.append("Robert")  # now "Robert" is both of theirs: it points at neither
+    ml.consolidate([], "en", b, ml.Runner(CastLLM([["Robert", "Robert Prentiss"]]), "m", ml.Cache(None)), max_look=0)
+    assert len(b.characters) == 5

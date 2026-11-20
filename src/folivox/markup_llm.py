@@ -126,6 +126,16 @@ class Character:
         return any(same_name(n, name) for n in self.names())
 
 
+def other_person(c: Character, name: str) -> bool:
+    """``name`` is a full name (several words) that is none of ``c``'s and fits none of its full names: Robert Prentiss
+    is not Robert Cohn, though both are called "Robert". One name inside the other (Elizabeth Bennet, Miss Elizabeth
+    Bennet) still fits, and a short name (Darcy) never makes two people."""
+    words = set(norm_name(name).split())
+    fulls = [set(norm_name(n).split()) for n in c.names() if len(norm_name(n).split()) > 1]
+    return (len(words) > 1 and bool(fulls) and not c.matches(name)
+            and not any(words <= f or f <= words for f in fulls))
+
+
 @dataclass
 class Bible:
     lang: str = ""
@@ -151,7 +161,9 @@ class Bible:
         aliases = [str(a).strip() for a in entry.get("aliases") or [] if str(a).strip() and len(str(a)) <= 60]
         gender = str(entry.get("gender") or "").strip().lower()[:1]
         gender = gender if gender in ("f", "m", "n") else ""
-        c = self.find(name, gender) or next((x for x in (self.find(a, gender) for a in aliases) if x), None)
+        # an alias finds the character only if the full names agree: a first name two people share is no proof
+        c = self.find(name, gender) or next((x for x in (self.find(a, gender) for a in aliases)
+                                             if x and not other_person(x, name)), None)
         if c is None:
             c = Character(name=name, first=chapter)
             self.characters.append(c)
@@ -555,6 +567,10 @@ def _same_list(d: dict) -> dict:
     return d
 
 
+def _full(names: list[str]) -> bool:
+    return any(len(norm_name(n).split()) > 1 for n in names)
+
+
 def merge_characters(bible: Bible, keep: Character, other: Character) -> None:
     """Fold ``other`` into ``keep`` (the same person met under two names)."""
     for a in other.names():
@@ -605,14 +621,24 @@ def consolidate(chapters: list, lang: str, bible: Bible, runner: Runner, *, max_
         except ValueError:
             out = {"same": []}
         for group in out["same"]:
-            found = [x for x in (bible.find(str(n)) for n in group if isinstance(n, str)) if x]
-            found = list({id(c): c for c in found}.values())
+            found: dict[int, tuple[Character, list[str]]] = {}  # each character with the names that found it
+            for n in (str(x) for x in group if isinstance(x, str)):
+                hits = [c for c in bible.characters if c.matches(n)]
+                if len(hits) > 1:  # a name two characters share (a first name) points at neither
+                    continue
+                c = hits[0] if hits else bible.find(n)
+                if c:
+                    found.setdefault(id(c), (c, []))[1].append(n)
             if len(found) < 2:
                 continue
-            keep = max(found, key=lambda c: c.lines)
-            for other in found:
-                if other is not keep and not (keep.gender and other.gender and keep.gender != other.gender):
-                    merge_characters(bible, keep, other)
+            keep, keep_by = max(found.values(), key=lambda f: f[0].lines)
+            for other, by in list(found.values()):
+                if other is keep or (keep.gender and other.gender and keep.gender != other.gender):
+                    continue
+                # two different full names are one person only when the model named both in full
+                if other_person(keep, other.name) and not (_full(by) and _full(keep_by)):
+                    continue
+                merge_characters(bible, keep, other)
         bible.assign_ids()
         if save:
             save(bible)
