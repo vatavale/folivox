@@ -366,6 +366,10 @@ def markup_auto(book_path: Path = typer.Argument(...), depth: int = typer.Option
     console.print(f"Saved {mp}: {stats.marked} of {stats.blocks} paragraphs with speech marked; "
                   f"{stats.fell_back} read by the narrator because the answer changed the text or failed; "
                   f"{stats.unknown_speakers} unknown speakers and {stats.dropped_tags} unknown tags dropped.")
+    if stats.skipped:
+        console.print(f"[yellow]The model left out {stats.skipped} paragraph(s) with speech[/] (asked again, "
+                      f"{stats.short_windows} window(s) stayed short): the narrator reads them and they are on the "
+                      "review list. Run the same command again to ask about them once more.")
     console.print("Check and fix it with `folivox markup export` / `import`, assign voices with "
                   "`folivox markup speaker`.")
 

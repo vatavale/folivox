@@ -197,6 +197,10 @@ removing the markers gives exactly the book's paragraph (whitespace differences 
 exists and the tags are in the tag list. Otherwise the narrator reads that paragraph. The summary at the end
 counts how many fell back. Expression tags are a separate switch, off by default: the models already read
 emotion reasonably well on their own.
+A reply must answer every paragraph of the window that opens with speech. One that leaves some out (a model that
+answers the first paragraph and stops) is asked again like any other bad reply; if every try stays short, the most
+complete one is used, the paragraphs it left out are read by the narrator and go on the review list, the summary
+says how many, and the reply is not cached, so the next run asks about that window again.
 
 Everything is **cached and resumable**: the replies are kept in `BOOK.llm-cache.sqlite` and the list and the
 markup are saved after every window, so an interrupted run continues where it stopped and an unchanged window
