@@ -635,6 +635,8 @@
  "mk.adv": "Watak dan suara…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} lagi",
+ "mk.cost": "≈ ${usd}, sehingga ${max}",
+ "mk.cost.unknown": "{n} token, harga tidak diketahui",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} j {m} min",

@@ -635,6 +635,8 @@
  "mk.adv": "પાત્રો અને અવાજો…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} બાકી",
+ "mk.cost": "≈ ${usd}, વધુમાં વધુ ${max}",
+ "mk.cost.unknown": "{n} ટોકન, કિંમત અજ્ઞાત",
  "mk.dur.under": "< 1 મિનિટ",
  "mk.dur.min": "{n} મિનિટ",
  "mk.dur.hm": "{h} કલાક {m} મિનિટ",

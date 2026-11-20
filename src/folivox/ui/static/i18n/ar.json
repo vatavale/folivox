@@ -635,6 +635,8 @@
  "mk.adv": "الشخصيات والأصوات…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "المتبقي {t}",
+ "mk.cost": "≈ ${usd}, حتى ${max}",
+ "mk.cost.unknown": "{n} رمز، السعر غير معروف",
  "mk.dur.under": "< 1 د",
  "mk.dur.min": "{n} د",
  "mk.dur.hm": "{h} س {m} د",

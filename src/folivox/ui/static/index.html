@@ -360,6 +360,7 @@ dialog ul { padding-inline-start:18px; margin:10px 0; } dialog li { margin:6px 0
           <div class="row" style="margin-top:6px"><button type="button" id="mk-dl" class="chip" hidden></button><button type="button" id="mk-dlstop" class="chip" hidden data-i18n="mk.stop">Stop</button></div>
           <progress id="mk-dlprog" max="100" value="0" hidden style="width:100%;margin-top:6px"></progress>
           <div id="mk-dlmsg" class="mute" style="font-size:12.5px;margin-top:4px"></div>
+          <label class="f" id="mk-capbox" hidden style="margin-top:8px"><span data-i18n="s3.cap">Spending cap, $ (optional)</span><input id="mk-max_cost" type="number" min="0.1" step="0.1" placeholder="no cap" data-i18n-attr="placeholder:s3.cap.ph"></label>
         </details>
       </div>
       <div id="mk-step" class="mk-nextstep" hidden></div>
@@ -1363,6 +1364,10 @@ async function mkLlmModels() {
     const add = (name, note) => { if (name && !seen.has(name)) { seen.add(name); opts.push(`<option value="${esc(name)}">${esc(name)}${note ? " - " + esc(note) : ""}</option>`); } };
     const has = (x) => m.installed.includes(x);
     add(m.configured, t("mk.model.configured"));
+    $("#mk-capbox").hidden = m.local !== false;
+    if (m.local === false) {  // a paid API: its configured model and the well-known ones; nothing to download
+      (m.known || []).forEach(x => add(x, "")); $("#mk-model").innerHTML = opts.join(""); if (m.configured) $("#mk-model").value = m.configured; return;
+    }
     // the whole ladder, smallest (fastest) first; what is missing says so
     [...m.tiers].reverse().forEach(x => add(x.model, [`${x.download_gb} GB`, has(x.model) ? t("mk.model.installed") : t("mk.model.missing"), x.model === m.recommended ? t("mk.model.recommended") : ""].filter(Boolean).join(", ")));
     m.installed.filter(x => !x.startsWith("gemma4") && !x.includes("embed")).forEach(x => add(x, t("mk.model.installed")));
@@ -1403,7 +1408,8 @@ const mkCancelPull = () => api("/api/llm/pull/cancel", { method: "POST" });
 // editor: the buttons next to the model list
 function mkModelButtons() {
   const m = MK.models, model = $("#mk-model").value, x = m && mkTier(m, model);
-  $("#mk-dl").hidden = !(x && !m.installed.includes(model)); $("#mk-rm").hidden = !(m && m.installed.includes(model));  // any installed model, also one that is not in our list
+  $("#mk-dl").hidden = !(x && !m.installed.includes(model)); $("#mk-rm").hidden = !(m && m.installed.includes(model));
+  if (m && m.local === false) { $("#mk-dl").hidden = $("#mk-rm").hidden = true; }  // any installed model, also one that is not in our list
   if (x) $("#mk-dl").textContent = t("mk.dl.btn", { gb: x.download_gb });
 }
 async function mkEditorPull(model) {
@@ -1444,7 +1450,15 @@ function mkDur(sec) {
   let m = Math.round(sec / 60); if (m >= 10) m = 5 * Math.round(m / 5);
   return m < 90 ? t("mk.dur.min", { n: m }) : t("mk.dur.hm", { h: Math.floor(m / 60), m: m % 60 });
 }
-const mkEstimate = (chapter, chapters) => api(`/api/books/${book.book_id}/llm/estimate?depth=${(MK.data && MK.data.depth) || +$("#depth").value || 2}${chapter ? "&chapter=" + chapter : ""}${chapters && chapters.length ? "&chapters=" + chapters.join(",") : ""}`);
+const mkEstimate = (chapter, chapters) => api(`/api/books/${book.book_id}/llm/estimate?depth=${(MK.data && MK.data.depth) || +$("#depth").value || 2}${chapter ? "&chapter=" + chapter : ""}${chapters && chapters.length ? "&chapters=" + chapters.join(",") : ""}${$("#mk-model").value ? "&model=" + encodeURIComponent($("#mk-model").value) : ""}`);
+// what a run with a paid language model costs (tokens and USD from the server's estimate); "" for a local model
+const mkTokens = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n);
+function mkCostText(cost, mode) {
+  const x = cost && !cost.local && cost.modes && cost.modes[mode]; if (!x) return "";
+  if (x.usd == null) return t("mk.cost.unknown", { n: mkTokens(x.input_tokens + x.output_tokens) });
+  return t("mk.cost", { usd: x.usd.toFixed(2), max: x.usd_max.toFixed(2) });
+}
+const mkWithCost = (time, cost, mode) => { const c = mkCostText(cost, mode); return c ? time + " · " + c : time; };
 // seconds of a mode: the windows of every stage, in the model's measured (or guessed) speed
 function mkModeSecs(model, est, mode) {
   const base = mkSecs(model, est), x = est.modes[mode], ne = (x.extra || 0) / 4;  // a short call is a quarter of a reading window
@@ -1456,8 +1470,8 @@ async function mkEtaEditor() {
   if (!book || !$("#mk-dlg").open) return;
   try {
     const model = $("#mk-model").value, est = await mkEstimate(0, selected());
-    $("#mk-eta-best").textContent = mkApprox(mkModeSecs(model, est, "best").total);
-    $("#mk-eta-prev").textContent = mkApprox(mkModeSecs(model, est, "preview").total);
+    $("#mk-eta-best").textContent = mkWithCost(mkApprox(mkModeSecs(model, est, "best").total), est.cost, "best");
+    $("#mk-eta-prev").textContent = mkWithCost(mkApprox(mkModeSecs(model, est, "preview").total), est.cost, "preview");
   } catch (e) { $("#mk-eta-best").textContent = $("#mk-eta-prev").textContent = ""; }
 }
 function mkModelHint() {
@@ -1469,7 +1483,8 @@ const MK_STAGE = { analyse: "mk.run.read", consolidate: "mk.run.consol", annotat
 const mkStageText = (s) => s.state !== "running" ? "" : !s.total ? t("mk.run.start") : t(MK_STAGE[s.stage] || "mk.run.mark", { d: s.done, n: s.total });
 // one run of the whole flow (characters, then speakers); ui = { busy(on), progress(pct, text), error(text) }
 async function mkAutoRun(task, o, ui, attach) {  // attach: the run is already going on in the server (reopened editor)
-  const body = { task, model: o.model || undefined, expression_tags: !!o.tags, depth: (MK.data && MK.data.depth) || +$("#depth").value || 2, chapters: o.chapters };
+  const cap = $("#mk-capbox").hidden ? "" : $("#mk-max_cost").value;
+  const body = { task, model: o.model || undefined, expression_tags: !!o.tags, depth: (MK.data && MK.data.depth) || +$("#depth").value || 2, chapters: o.chapters, max_cost: cap ? +cap : undefined };
   let sec = null;
   try {
     const est = await mkEstimate(0, o.chapters);
@@ -1497,9 +1512,11 @@ async function mkAutoRun(task, o, ui, attach) {  // attach: the run is already g
       }
       const el = (now - t0) / 1000;
       ui.progress(left === null ? (s.total ? Math.round(100 * s.done / s.total) : 0) : Math.round(100 * el / (el + left)),
-        mkStageText(s) + (left === null || s.state !== "running" ? "" : " · " + t("mk.eta.left", { t: mkDur(left) })));
+        mkStageText(s) + (left === null || s.state !== "running" ? "" : " · " + t("mk.eta.left", { t: mkDur(left) }))
+        + (s.spent && s.state === "running" ? " · $" + s.spent.usd.toFixed(2) + (s.spent.cap ? " / $" + s.spent.cap.toFixed(2) : "") : ""));
       if (s.state === "running") continue;
       if (s.state === "error") { ui.error(s.message); return null; }
+      if (s.reason === "cost_cap") { ui.error(t("ph.capreached") + ". " + s.message); return null; }
       if (stage === "annotate" && s.done >= 2 && per) { try { localStorage.setItem("folivox.mkrate." + o.model, String(per)); } catch (e) { /* private mode */ } }
       return s;
     }
@@ -1530,7 +1547,7 @@ async function mkLlm(task, attach) {
   const hasMarkup = mkHasSpans();
   if (!attach && task !== "analyse" && hasMarkup && !confirm(t("mk.again.confirm"))) return;
   let model = $("#mk-model").value;
-  if (!attach && model && MK.models && !MK.models.installed.includes(model)) {
+  if (!attach && model && MK.models && MK.models.local !== false && !MK.models.installed.includes(model)) {
     if (!MK.models.running) { msg.textContent = t("mk.dl.noollama"); return; }
     if (!mkAskDownload(model, MK.models) || !await mkEditorPull(model)) return;
   }

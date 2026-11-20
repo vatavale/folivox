@@ -635,6 +635,8 @@
  "mk.adv": "דמויות וקולות…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "נותרו {t}",
+ "mk.cost": "≈ ${usd}, עד ${max}",
+ "mk.cost.unknown": "{n} טוקנים, המחיר לא ידוע",
  "mk.dur.under": "< דקה",
  "mk.dur.min": "{n} דק'",
  "mk.dur.hm": "{h} ש' {m} דק'",

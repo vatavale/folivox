@@ -635,6 +635,8 @@
  "mk.adv": "등장인물과 목소리…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} 남음",
+ "mk.cost": "≈ ${usd} (최대 ${max})",
+ "mk.cost.unknown": "{n}토큰, 가격 알 수 없음",
  "mk.dur.under": "< 1분",
  "mk.dur.min": "{n}분",
  "mk.dur.hm": "{h}시간 {m}분",

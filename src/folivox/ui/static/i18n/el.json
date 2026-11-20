@@ -635,6 +635,8 @@
  "mk.adv": "Χαρακτήρες και φωνές…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "απομένουν {t}",
+ "mk.cost": "≈ ${usd}, έως ${max}",
+ "mk.cost.unknown": "{n} tokens, άγνωστη τιμή",
  "mk.dur.under": "< 1 λ",
  "mk.dur.min": "{n} λ",
  "mk.dur.hm": "{h} ώ {m} λ",

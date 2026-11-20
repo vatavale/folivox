@@ -635,6 +635,8 @@
  "mk.adv": "ตัวละครและเสียง…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "เหลือ {t}",
+ "mk.cost": "≈ ${usd}, สูงสุด ${max}",
+ "mk.cost.unknown": "{n} โทเค็น ไม่ทราบราคา",
  "mk.dur.under": "< 1 นาที",
  "mk.dur.min": "{n} นาที",
  "mk.dur.hm": "{h} ชม. {m} นาที",

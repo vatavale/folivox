@@ -23,13 +23,20 @@ class Task:
         self.task = ""
         self.stage, self.done, self.total, self.message = "", 0, 0, ""
         self.stats: dict = {}
+        self.reason = ""  # why a run stopped early: "cost_cap"
+        self.budget = None  # the run's spend (folivox.markup_cost.Budget)
         self.cancel = threading.Event()
         self.llm = None
         self.release = False  # unload the model when the run ends (the person stopped it, or nobody is watching)
 
     def snapshot(self) -> dict:
-        return {"state": self.state, "task": self.task, "stage": self.stage, "done": self.done, "total": self.total,
-                "message": self.message, "stats": self.stats}
+        out = {"state": self.state, "task": self.task, "stage": self.stage, "done": self.done, "total": self.total,
+               "message": self.message, "stats": self.stats, "reason": self.reason}
+        b = self.budget
+        if b is not None and b.price is not None and not b.price.free:
+            out["spent"] = {"usd": round(b.usd or 0.0, 4), "tokens": b.spent.tokens, "calls": b.spent.calls,
+                            "cap": b.max_cost}
+        return out
 
 
 PREVIEW_ANALYSE = 6  # windows read for a preview of the characters
@@ -74,11 +81,18 @@ def routes(api_error, state, services: dict) -> list[Route]:
 
     async def models(request: Request):
         from folivox import config, diag
-        from folivox.llm import GEMMA_TIERS, Ollama, recommend_model
+        from folivox import markup_cost as mc
+        from folivox.llm import GEMMA_TIERS, LLMS, Ollama, recommend_model
 
+        provider = config.provider("llm") or LLMS.default
+        if not mc.is_local(provider):  # a paid API: its configured model and the well-known ones, no downloads
+            return JSONResponse({"provider": provider, "local": False, "configured": mc.default_model(provider),
+                                 "known": mc.known_models(provider), "installed": [], "tiers": [],
+                                 "running": True, "recommended": ""})
         ram = diag.ram_gb()
         ollama = Ollama()
-        return JSONResponse({"ram_gb": ram, "recommended": recommend_model(ram), "running": ollama.running(),
+        return JSONResponse({"provider": provider, "local": True, "ram_gb": ram, "recommended": recommend_model(ram),
+                             "running": ollama.running(),
                              "free_gb": round(shutil.disk_usage(Path.home()).free / 1e9, 1),
                              "configured": config.section("llm.ollama").get("model", ""),
                              "installed": ollama.installed(),
@@ -206,6 +220,28 @@ def routes(api_error, state, services: dict) -> list[Route]:
         pull.cancel.set()
         return JSONResponse(pull.snapshot())
 
+    def run_cost(book, chapters, bible, speech, extra: int, llm: str | None, model: str | None) -> dict:
+        """Tokens and USD of each mode with the chosen (or configured) language model, as the page shows them."""
+        from folivox import config
+        from folivox import markup_cost as mc
+        from folivox.llm import LLMS
+
+        provider = config.provider("llm", llm) or LLMS.default
+        model = model or mc.default_model(provider)
+        if mc.is_local(provider):
+            return {"provider": provider, "model": model, "local": True}
+        try:
+            price = mc.price_of(provider, model)
+        except ValueError as e:
+            return {"provider": provider, "model": model, "error": str(e)}
+        runs = {"preview": mc.estimate(chapters, book.lang, bible, price, model=model, provider=provider,
+                                       analyse=mc.analyse_windows(chapters, bible, PREVIEW_ANALYSE),
+                                       annotate=mc.annotate_windows(chapters, None, PREVIEW_MARK)),
+                "best": mc.estimate(chapters, book.lang, bible, price, model=model, provider=provider,
+                                    analyse=mc.analyse_windows(chapters, bible), annotate=speech, extra_calls=extra)}
+        return {"provider": provider, "model": model, "local": mc.is_local(provider),
+                "modes": {k: v.to_dict() for k, v in runs.items()}}
+
     async def estimate(request: Request):
         """How many model calls an automatic run needs (the page turns them into time for the chosen model)."""
         bid = request.path_params["book_id"]
@@ -244,10 +280,32 @@ def routes(api_error, state, services: dict) -> list[Route]:
         # the average window of each stage (a short book has short windows, and the page counts time by them)
         read_chars = round(sum(len(w.text()) for w in every) / len(every)) if every else ml.WINDOW_CHARS
         mark_chars = round(sum(len(w.text()) for w in speech) / len(speech)) if speech else ml.WINDOW_CHARS
+        cost = run_cost(entry["book"], chapters, bible, speech, modes["best"]["extra"],
+                        request.query_params.get("llm") or None, request.query_params.get("model") or None)
         return JSONResponse({"analyse_windows": left, "annotate_windows": len(speech), "window_chars": mark_chars,
-                             "read_chars": read_chars,
+                             "read_chars": read_chars, "cost": cost,
                              "modes": modes, "chars": sum(len(w.text()) for w in every),
                              "speech_chapters": sorted({w.chapter for w in every_speech}), "stale_chapters": stale})
+
+    def make_budget(body: dict, model: str):
+        """The run's spend counter with the optional cap (``max_cost``, USD), checked as the render's Fish cap is."""
+        from folivox import config
+        from folivox import markup_cost as mc
+        from folivox.llm import LLMS
+
+        cap = body.get("max_cost")
+        try:
+            cap = float(cap) if cap not in (None, "") else None
+        except (TypeError, ValueError):
+            raise api_error("The spending cap must be a number of dollars") from None
+        if cap is not None and cap <= 0:
+            raise api_error("The spending cap must be more than zero")
+        provider = config.provider("llm", body.get("llm") or None) or LLMS.default
+        try:
+            return mc.Budget(mc.price_of(provider, model), cap,
+                             hint="raise the spending cap and start again to continue")
+        except ValueError as e:
+            raise api_error(str(e)) from None
 
     async def status(request: Request):
         return JSONResponse(task_of(request.path_params["book_id"]).snapshot())
@@ -278,6 +336,7 @@ def routes(api_error, state, services: dict) -> list[Route]:
             raise api_error(str(e), 409) from None
         except Exception as e:  # noqa: BLE001 — a missing key, an unknown provider
             raise api_error(str(e)) from None
+        budget = make_budget(body, model)
         book = entry["book"]
         depth = int(body.get("depth", 2))
         chapters = book.chapters(depth)
@@ -290,7 +349,7 @@ def routes(api_error, state, services: dict) -> list[Route]:
         bp, mp, cp = files(bid)
         for f in (bp, mp, cp):
             f.parent.mkdir(parents=True, exist_ok=True)
-        t.llm, t.release = llm, False
+        t.llm, t.release, t.budget, t.reason = llm, False, budget, ""
         t.state, t.task, t.message, t.stats = "running", what, "", {}
         t.done = t.total = 0
         t.cancel.clear()
@@ -324,7 +383,7 @@ def routes(api_error, state, services: dict) -> list[Route]:
             """The two ways the page offers: a preview (a sample, minutes) or the best that can be done (every
             chapter chosen, the whole book read, the characters looked at again, doubtful places asked about again)."""
             cache = ml.Cache(cp)
-            runner = ml.Runner(llm, model, cache, cancelled=t.cancel.is_set)
+            runner = ml.Runner(llm, model, cache, cancelled=t.cancel.is_set, budget=budget)
             try:
                 bible = ml.Bible.load(bp) if bp.is_file() else ml.Bible()
                 markup = mk.Markup.load(mp) if mp.is_file() else mk.Markup(depth=depth)
@@ -357,6 +416,8 @@ def routes(api_error, state, services: dict) -> list[Route]:
                     markup.save(mp)
                     bible.save(bp)
                 t.state = "cancelled" if t.cancel.is_set() else "done"
+            except ml.CostCapReached as e:  # progress is saved; a higher cap carries on
+                t.state, t.reason, t.message = "cancelled", "cost_cap", str(e)
             except Exception as e:  # noqa: BLE001 — shown to the user; progress is saved
                 t.state, t.message = "error", str(e)
             finally:
@@ -369,7 +430,7 @@ def routes(api_error, state, services: dict) -> list[Route]:
             if what in ("preview", "best"):
                 return work_mode()
             cache = ml.Cache(cp)
-            runner = ml.Runner(llm, model, cache, cancelled=t.cancel.is_set)
+            runner = ml.Runner(llm, model, cache, cancelled=t.cancel.is_set, budget=budget)
             try:
                 bible = ml.Bible.load(bp) if bp.is_file() and body.get("resume", True) else ml.Bible()
                 if what == "analyse" or bible.sampled or bible.done_windows < max(bible.total_windows, 1):
@@ -393,6 +454,8 @@ def routes(api_error, state, services: dict) -> list[Route]:
                     t.stats = stats.__dict__
                 t.state = "cancelled" if t.cancel.is_set() else "done"
                 t.message = f"{bible.voices_needed()} voices needed" if what == "analyse" else t.message
+            except ml.CostCapReached as e:  # progress is saved; a higher cap carries on
+                t.state, t.reason, t.message = "cancelled", "cost_cap", str(e)
             except Exception as e:  # noqa: BLE001 — shown to the user; progress is saved
                 t.state, t.message = "error", str(e)
             finally:

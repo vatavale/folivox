@@ -635,6 +635,8 @@
  "mk.adv": "Karakterler ve sesler…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} kaldı",
+ "mk.cost": "≈ ${usd}, en fazla ${max}",
+ "mk.cost.unknown": "{n} token, fiyat bilinmiyor",
  "mk.dur.under": "< 1 dk",
  "mk.dur.min": "{n} dk",
  "mk.dur.hm": "{h} sa {m} dk",

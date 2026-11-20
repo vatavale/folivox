@@ -635,6 +635,8 @@
  "mk.adv": "Ликови и гласови…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "преостало {t}",
+ "mk.cost": "≈ ${usd}, до ${max}",
+ "mk.cost.unknown": "{n} токена, цена непозната",
  "mk.dur.under": "< 1 мин",
  "mk.dur.min": "{n} мин",
  "mk.dur.hm": "{h} ч {m} мин",

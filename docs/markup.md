@@ -135,6 +135,18 @@ goes to that service). Set a default in `config.toml`: `[llm.ollama] model = "ge
 runs before the audio is made, never together with the voice model. Small models miss subtle speakers: check
 the result.
 
+**Cost with a paid API.** A local model is free. With an API, `folivox markup auto BOOK --estimate` (or
+`analyse --estimate`) shows the calls, tokens and approximate USD of the run and sends nothing; the studio shows the
+same next to the time of each button. The estimate builds the prompts this book would send and sizes the answers
+from its paragraphs with speech; models also reason before they answer, so it gives a likely figure and an "up to"
+one. Well-known models have list prices built in (`folivox/markup_cost.py`, with the date they were read); set
+`price_in` and `price_out` (USD per million tokens) in `[llm.openai]` for any other model, or the estimate shows
+tokens and says the price is not known. `--max-cost N` (the studio's *Spending cap, $* under Options) counts the
+tokens each reply reports and stops cleanly before the call that would pass N USD (each call is judged by its prompt
+and the longest reply so far); the replies already paid for are saved, so the same command with a higher cap
+carries on. There is no cap unless you set one, and a cap needs a
+known price.
+
 A small test on an Apple-silicon Mac with 36 GB (made-up texts of 20 paragraphs, 15 with speech, the same story in
 English, Russian, German and Spanish; counted: paragraphs whose quoted speech went to the right character):
 

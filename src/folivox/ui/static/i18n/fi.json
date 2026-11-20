@@ -635,6 +635,8 @@
  "mk.adv": "Hahmot ja äänet…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} jäljellä",
+ "mk.cost": "≈ ${usd}, enintään ${max}",
+ "mk.cost.unknown": "{n} tokenia, hinta tuntematon",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} h {m} min",

@@ -635,6 +635,8 @@
  "mk.adv": "पात्रे आणि आवाज…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} उरले",
+ "mk.cost": "≈ ${usd}, जास्तीत जास्त ${max}",
+ "mk.cost.unknown": "{n} टोकन, किंमत अज्ञात",
  "mk.dur.under": "< 1 मि",
  "mk.dur.min": "{n} मि",
  "mk.dur.hm": "{h} तास {m} मि",

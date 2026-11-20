@@ -210,6 +210,50 @@ def _llm(provider: str | None, model: str | None):
         raise typer.Exit(2) from None
 
 
+def _provider(llm_name: str | None) -> str:
+    from folivox import config
+    from folivox.llm import LLMS
+
+    return config.provider("llm", llm_name) or LLMS.default
+
+
+def _price(provider: str, model: str):
+    from folivox import markup_cost as mc
+
+    try:
+        return mc.price_of(provider, model)
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        raise typer.Exit(2) from None
+
+
+def _budget(provider: str, model: str, max_cost: float | None):
+    """The run's spend counter; refuses a cap it cannot keep (no known price)."""
+    from folivox import markup_cost as mc
+
+    try:
+        return mc.Budget(_price(provider, model), max_cost)
+    except ValueError as e:
+        console.print(f"[red]{e}[/]")
+        raise typer.Exit(2) from None
+
+
+def _show_estimate(est, max_cost: float | None) -> None:
+    from folivox import markup_cost as mc
+
+    paid = not (est.price is not None and est.price.free)
+    console.print(f"[bold yellow]Paid language model: {est.model}[/] ({est.provider})" if paid
+                  else f"Language model: {est.model} ({est.provider})")
+    from rich.markup import escape
+
+    console.print(f"  {escape(mc.describe(est))}", soft_wrap=True)
+    if max_cost is not None:
+        console.print(f"  Spending cap: ${max_cost:.2f} — the run stops cleanly and can be resumed.")
+    elif paid:
+        console.print("  [dim]Tip: --max-cost N stops cleanly before N USD; run the same command again to "
+                      "continue.[/]", soft_wrap=True)
+
+
 def _progress():
     def show(stage: str, done: int, total: int, message: str) -> None:
         console.print(f"  {stage} {done}/{total}  {message}")
@@ -250,33 +294,71 @@ def markup_analyse(book_path: Path = typer.Argument(...), depth: int = typer.Opt
                    llm_name: str = typer.Option(None, "--llm", help="ollama (default) or openai"),
                    model: str = typer.Option(None, "--model", help="Model name (default: the Gemma 4 that fits)."),
                    sample: int = typer.Option(None, "--sample", help="Only N windows, spread over the book."),
-                   fresh: bool = typer.Option(False, "--fresh", help="Start over instead of continuing.")):
+                   fresh: bool = typer.Option(False, "--fresh", help="Start over instead of continuing."),
+                   estimate: bool = typer.Option(False, "--estimate", help="Show the calls, tokens and cost of the "
+                                                 "run, then stop (nothing is sent)."),
+                   max_cost: float | None = typer.Option(None, "--max-cost", show_default="no cap",
+                                                         help="Stop cleanly (resumable) before the language model's "
+                                                         "spend passes N USD.")):
     from folivox import cli
+    from folivox import markup_cost as mc
     from folivox import markup_llm as ml
 
     book = cli._load(book_path)
-    llm, model_name = _llm(llm_name, model)
     bp, cp = ml.bible_path(book_path), ml.cache_path(book_path)
     try:
         bible = ml.Bible.load(bp) if bp.is_file() and not fresh else ml.Bible()
     except ml.LLMError as e:
         console.print(f"[red]{e}[/] Start over with --fresh.")
         raise typer.Exit(2) from None
+    provider = _provider(llm_name)
+    chapters = book.chapters(depth)
+    if estimate:
+        name = _model_name(provider, model)
+        _show_estimate(mc.estimate(chapters, book.lang, bible, _price(provider, name),
+                                   analyse=mc.analyse_windows(chapters, bible, sample), model=name,
+                                   provider=provider), max_cost)
+        return
+    llm, model_name = _llm(llm_name, model)
+    budget = _budget(provider, model_name, max_cost)
+    if not budget.price or not budget.price.free:
+        _show_estimate(mc.estimate(chapters, book.lang, bible, budget.price,
+                                   analyse=mc.analyse_windows(chapters, bible, sample), model=model_name,
+                                   provider=provider), max_cost)
     if bible.model and bible.model != model_name:
         console.print(f"[yellow]The list was made with {bible.model}; continuing with {model_name}.[/]")
     cache = ml.Cache(cp)
-    runner = ml.Runner(llm, model_name, cache)
+    runner = ml.Runner(llm, model_name, cache, budget=budget)
     console.print(f"Analysing {book.title} with {model_name}…")
     try:
-        bible = ml.analyse(book.chapters(depth), book.lang, runner, bible, max_windows=sample,
+        bible = ml.analyse(chapters, book.lang, runner, bible, max_windows=sample,
                            save=lambda b: b.save(bp), progress=_progress())
+    except ml.CostCapReached as e:
+        console.print(f"[yellow]{e}[/]")
+        raise typer.Exit(3) from None
     except ml.LLMError as e:
         console.print(f"[red]{e}[/] Progress is saved: run the same command again to continue.")
         raise typer.Exit(1) from None
     finally:
         cache.close()
+        if budget.spent.calls and not (budget.price and budget.price.free):
+            console.print(budget.summary())
     _print_bible(bible)
     console.print(f"Saved {bp}. Next: folivox markup auto {book_path.name}")
+
+
+def _model_name(provider: str, model: str | None) -> str:
+    """The model a run would use, without reaching it (for an estimate)."""
+    from folivox import markup_cost as mc
+
+    if model:
+        return model
+    if mc.is_local(provider) and provider == "ollama":
+        from folivox import config, diag
+        from folivox.llm import recommend_model
+
+        return config.section("llm.ollama").get("model") or recommend_model(diag.ram_gb())
+    return mc.default_model(provider) or provider
 
 
 def _print_bible(bible) -> None:
@@ -328,21 +410,51 @@ def markup_auto(book_path: Path = typer.Argument(...), depth: int = typer.Option
                 fresh: bool = typer.Option(False, "--fresh", help="Forget the saved model replies for this book."),
                 best: bool = typer.Option(False, "--best", help="The best quality: look at the characters again once "
                                           "the book is read and ask again about the places the rule check doubts "
-                                          "(can take hours; carries on where it stopped).")):
+                                          "(can take hours; carries on where it stopped)."),
+                estimate: bool = typer.Option(False, "--estimate", help="Show the calls, tokens and cost of the run, "
+                                              "then stop (nothing is sent)."),
+                max_cost: float | None = typer.Option(None, "--max-cost", show_default="no cap",
+                                                      help="Stop cleanly (resumable) before the language model's "
+                                                      "spend passes N USD.")):
     from folivox import cli
     from folivox import markup as mk
+    from folivox import markup_cost as mc
     from folivox import markup_llm as ml
 
     book = cli._load(book_path)
-    llm, model_name = _llm(llm_name, model)
     chs = book.chapters(depth)
     bp, cp, mp = ml.bible_path(book_path), ml.cache_path(book_path), file or mk.path_for(book_path)
+    provider = _provider(llm_name)
+    chosen = _chapter_set(chapters, len(chs))
+
+    def run_estimate(bible, name: str, price) -> mc.Estimate:
+        reread = bible.sampled or bible.done_windows < max(bible.total_windows, 1)
+        marked = mc.annotate_windows(chs, chosen)
+        extra = 8 + round(0.02 * sum(len(w.blocks) for w in marked)) if best else 0  # as the studio counts them
+        return mc.estimate(chs, book.lang, bible, price, analyse=mc.analyse_windows(chs, bible) if reread else [],
+                           annotate=marked, extra_calls=extra, expression_tags=expression, model=name,
+                           provider=provider)
+
+    if estimate:
+        try:
+            bible = ml.Bible.load(bp) if bp.is_file() else ml.Bible()
+        except ml.LLMError as e:
+            console.print(f"[red]{e}[/]")
+            raise typer.Exit(2) from None
+        name = _model_name(provider, model)
+        _show_estimate(run_estimate(bible, name, _price(provider, name)), max_cost)
+        return
+    llm, model_name = _llm(llm_name, model)
+    budget = _budget(provider, model_name, max_cost)
     if fresh:
         cp.unlink(missing_ok=True)
     cache = ml.Cache(cp)
-    runner = ml.Runner(llm, model_name, cache)
+    runner = ml.Runner(llm, model_name, cache, budget=budget)
+    paid = not (budget.price and budget.price.free)
     try:
         bible = ml.Bible.load(bp) if bp.is_file() else ml.Bible()
+        if paid:
+            _show_estimate(run_estimate(bible, model_name, budget.price), max_cost)
         if bible.sampled or bible.done_windows < max(bible.total_windows, 1):  # a preview is not a full reading
             console.print("Reading the book for its characters first…")
             bible = ml.analyse(chs, book.lang, runner, bible, save=lambda b: b.save(bp), progress=_progress())
@@ -358,13 +470,15 @@ def markup_auto(book_path: Path = typer.Argument(...), depth: int = typer.Option
 
         console.print(f"Marking speakers with {model_name}{' and expression tags' if expression else ''}…")
         markup, stats = ml.annotate(chs, book.lang, bible, runner, markup, expression_tags=expression,
-                                    chapter_filter=_chapter_set(chapters, len(chs)), save=save,
-                                    progress=_progress(), depth=depth)
+                                    chapter_filter=chosen, save=save, progress=_progress(), depth=depth)
         if best:
             console.print("Asking again about the doubtful places…")
             settled, left = ml.second_opinion(chs, book.lang, bible, runner, markup, save=save, progress=_progress())
             console.print(f"{settled} doubtful places settled, {left} left to check "
                           "(they are on the review list in the studio).")
+    except ml.CostCapReached as e:
+        console.print(f"[yellow]{e}[/]")
+        raise typer.Exit(3) from None
     except ml.LLMError as e:
         console.print(f"[red]{e}[/] Progress is saved: run the same command again to continue.")
         raise typer.Exit(1) from None
@@ -373,6 +487,8 @@ def markup_auto(book_path: Path = typer.Argument(...), depth: int = typer.Option
         raise typer.Exit(2) from None
     finally:
         cache.close()
+        if paid and budget.spent.calls:
+            console.print(budget.summary())
     markup.expression_tags = markup.expression_tags if not expression else True
     mk.stamp(markup, chs)
     markup.save(mp)

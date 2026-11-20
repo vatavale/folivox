@@ -635,6 +635,8 @@
  "mk.adv": "Personajes y voces…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "faltan {t}",
+ "mk.cost": "≈ ${usd}, hasta ${max}",
+ "mk.cost.unknown": "{n} tokens, precio desconocido",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} h {m} min",

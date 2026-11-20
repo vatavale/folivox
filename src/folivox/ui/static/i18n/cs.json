@@ -635,6 +635,8 @@
  "mk.adv": "Postavy a hlasy…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "zbývá {t}",
+ "mk.cost": "≈ ${usd}, až ${max}",
+ "mk.cost.unknown": "{n} tokenů, cena neznámá",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} h {m} min",

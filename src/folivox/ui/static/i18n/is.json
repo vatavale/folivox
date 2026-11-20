@@ -635,6 +635,8 @@
  "mk.adv": "Persónur og raddir…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} eftir",
+ "mk.cost": "≈ ${usd}, allt að ${max}",
+ "mk.cost.unknown": "{n} tókar, verð óþekkt",
  "mk.dur.under": "< 1 mín.",
  "mk.dur.min": "{n} mín.",
  "mk.dur.hm": "{h} klst. {m} mín.",

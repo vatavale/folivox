@@ -65,6 +65,10 @@ class ShortReply(ValueError):
                 "paragraph, with the JSON object only.")
 
 
+class CostCapReached(LLMError):
+    """The next model call would pass the run's spending cap; what is done is saved and the run can be resumed."""
+
+
 # -- character bible ------------------------------------------------------------------------------------------
 
 def norm_name(s: str) -> str:
@@ -336,9 +340,11 @@ class Runner:
     BUSY_WAIT_CAP = 60.0  # seconds, the longest single wait
 
     def __init__(self, llm, model: str, cache: Cache, tries: int = 2,
-                 cancelled: Callable[[], bool] = lambda: False, sleep: Callable[[float], None] = time.sleep):
+                 cancelled: Callable[[], bool] = lambda: False, sleep: Callable[[float], None] = time.sleep,
+                 budget=None):
         self.llm, self.model, self.cache, self.tries = llm, model, cache, tries
         self.cancelled, self.sleep = cancelled, sleep
+        self.budget = budget  # folivox.markup_cost.Budget: counts what the calls cost and stops at a spending cap
         self.calls = self.cached = self.failures = 0
 
     def _wait(self, seconds: float) -> None:
@@ -403,8 +409,17 @@ class Runner:
             self.calls += 1
             extra = ("" if attempt == 0 else last.retry_note() if isinstance(last, ShortReply)
                      else "\n\nYour previous answer was not valid. Answer with the JSON object only.")
+            sent = len(system) + len(prompt) + len(extra)
+            if self.budget is not None:
+                self.budget.check(sent)  # raises CostCapReached before a call that would pass the cap
+            try:
+                self.llm.last_usage = None  # a reply that reports no usage must not inherit the last one's
+            except AttributeError:
+                pass
             try:
                 reply = self._complete(prompt + extra, system, 0.1 + 0.2 * attempt)
+                if self.budget is not None:  # a reply is paid for even when it is unusable
+                    self.budget.record(getattr(self.llm, "last_usage", None), sent, len(reply))
                 out = validate(extract_json(reply))
             except ShortReply as e:
                 last = e
