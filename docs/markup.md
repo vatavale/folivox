@@ -169,6 +169,15 @@ not stick, and a character whose gender or age is still a guess (one vote, or ne
 correction made by hand in the studio counts as a heavy vote and is not outvoted later. Names are merged across
 cases and nicknames. `BOOK.characters.json` holds the list with the number of **voices the book needs**.
 
+**More than 15 speakers.** Speaker ids stop at 15, so each character keeps its own id only while 15 or fewer speak.
+With more, the 13 who speak most keep theirs and the rest share two: 14 (men and unknown) and 15 (women). Those
+characters are marked `"shared": true` in the list, and the markup names the two speakers *Other men* and *Other
+women* (with the names of everyone on them), so a voice given to one of them is plainly a voice for all of them. An
+id that one character already holds is never shared with another: a character met later while marking, when no id
+is free, keeps none and the narrator reads them; `folivox markup characters` and `auto` list them. A character
+the model lists as "Narrator" (a first-person narrator met while marking) gets no id at all: the narrator's own
+voice, speaker 0, reads them.
+
 **Looking again (the best quality).** When the whole book has been read, `consolidate` asks the model which of the
 names are one person and joins them, then looks again, with passages from all over the book (pronouns, forms of
 address, who is called a child or a grandfather), at every character whose gender or age is still unsure. This is

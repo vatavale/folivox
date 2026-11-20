@@ -162,6 +162,95 @@ def test_more_than_fifteen_speakers_share_the_last_ids():
     assert ids[:13] == list(range(1, 14)) and set(ids[13:]) <= {14, 15} and max(ids) <= 15
 
 
+def test_a_late_speaker_never_takes_an_id_one_character_already_holds():
+    """15 speakers fill ids 1..15 one each; a 16th met later (while marking) must not be read in another
+    character's voice (here a woman would land on id 15, held by a man): the narrator reads them instead."""
+    b = ml.Bible()
+    names = "Альфа Бета Гамма Дельта Эпсилон Зита Тета Йота Каппа Лямбда Сигма Омега Ро Хи Пси".split()
+    for i, n in enumerate(names):
+        b.merge({"name": n, "gender": "m" if i == 14 else "f", "lines": 40 - i})
+    b.assign_ids()
+    before = {c.name: c.id for c in b.characters}
+    assert sorted(before.values()) == list(range(1, 16)) and not any(c.shared for c in b.characters)
+    b.merge({"name": "Тау", "gender": "f", "lines": 1})
+    b.merge({"name": "Фи", "gender": "m", "lines": 1})
+    b.assign_ids()
+    assert {c.name: c.id for c in b.characters if c.name in before} == before  # nobody is renumbered
+    assert b.find("Тау").id == 0 and b.find("Фи").id == 0
+    assert [c.name for c in b.unassigned()] == ["Тау", "Фи"]
+
+
+def test_shared_ids_are_marked_and_survive_a_saved_list_from_before():
+    b = ml.Bible()
+    names = "Альфа Бета Гамма Дельта Эпсилон Зита Тета Йота Каппа Лямбда Сигма Омега Ро Хи Пси Тау Фи".split()
+    for i, n in enumerate(names):
+        b.merge({"name": n, "gender": "f" if i % 2 else "m", "lines": 40 - i})
+    b.assign_ids()
+    shared = {c.name: c.id for c in b.characters if c.shared}
+    assert set(shared) == set(names[13:]) and all(c.id <= 13 for c in b.characters if not c.shared)
+    assert all(i == (15 if b.find(n).gender == "f" else 14) for n, i in shared.items())
+    # a list saved before the flag existed: two characters on one id are read as a shared id
+    old = b.to_dict()
+    for c in old["characters"]:
+        c.pop("shared")
+    again = ml.Bible.from_dict(old)
+    again.merge({"name": "Эта", "gender": "f", "lines": 1})
+    again.assign_ids()
+    assert again.find("Эта").id == 15 and again.find("Эта").shared
+    assert {c.name for c in again.characters if c.shared} == set(names[13:]) | {"Эта"}
+    assert again.unassigned() == []
+
+
+def test_the_markup_names_a_shared_speaker_as_shared():
+    bible = run_analyse()[0]
+    for c in bible.characters:  # Anna and Boris speak least of 16: they go to the shared ids
+        c.id = 0
+    for i, n in enumerate("Альфа Бета Гамма Дельта Эпсилон Зита Тета Йота Каппа Лямбда Сигма Омега Ро Хи".split()):
+        bible.merge({"name": n, "gender": "m", "lines": 50 - i})
+    old = mk.Markup()
+    old.ensure_speaker(15, "Анна")  # what the markup said before: the first woman on the shared id
+    markup, stats, bible = annotate(bible=bible, markup=old)
+    anna, boris = bible.find("Анна"), bible.find("Борис")
+    assert (anna.id, boris.id) == (15, 14) and anna.shared and boris.shared
+    sp15, sp14 = markup.speaker(15), markup.speaker(14)
+    assert sp15.name == ml.SHARED_NAMES[15] and "Анна" in sp15.aliases and sp15.gender == "f"
+    assert sp14.name == ml.SHARED_NAMES[14] and set(sp14.aliases) >= {"Борис", "Хи"}
+    assert {s.speaker for c in markup.chapters.values() for s in c.spans} == {14, 15}  # the speech is still marked
+    sp14.name = "Прохожие"  # a name the person chose stays
+    markup, _, _ = annotate(bible=bible, markup=markup)
+    assert markup.speaker(14).name == "Прохожие"
+
+
+class NewcomerLLM(FakeLLM):
+    """While marking, lists a first-person narrator as a character called "Narrator" (as a benchmark run did) and
+    answers his speech with the id the list then gives him, as the model there did."""
+
+    def complete_json(self, prompt, system=None, temperature=0.2):
+        reply = json.loads(super().complete_json(prompt, system, temperature))
+        if system.startswith("You mark up books"):
+            reply["updates"] = [{"name": "Narrator", "aliases": ["Jake"], "gender": "m"}]
+            reply["new_characters"] = [{"name": "Первая жена", "gender": "f"}]
+        return json.dumps(reply, ensure_ascii=False)
+
+
+def test_a_narrator_listed_while_marking_never_lands_on_another_characters_voice():
+    """The benchmark case: 14 speakers from the reading, then the marking model lists "Narrator" (the first-person
+    narrator, the book's busiest speaker) and a minor woman. The narrator went to id 14, which one man held, so his
+    lines were read in that man's voice."""
+    bible = run_analyse()[0]
+    for i, n in enumerate("Альфа Бета Гамма Дельта Эпсилон Зита Тета Йота Каппа Лямбда Сигма Ми".split()):
+        bible.merge({"name": n, "gender": "m", "lines": 50 - i})
+    bible.assign_ids()
+    held = {c.name: c.id for c in bible.characters}
+    assert len(held) == 14 and max(held.values()) == 14
+    markup, stats, bible = annotate(llm=NewcomerLLM(), bible=bible)
+    assert {c.name: c.id for c in bible.characters if c.name in held} == held
+    assert bible.find("Narrator").id == 0 and bible.find("Первая жена").id == 15
+    assert not any(c.shared for c in bible.characters) and bible.unassigned() == []
+    assert markup.speaker(14).name == bible.characters[[c.id for c in bible.characters].index(14)].name
+    assert all(s.name != "Narrator" for s in markup.speakers if s.id)
+
+
 def annotate(llm=None, bible=None, **kw):
     bible = bible or run_analyse()[0]
     llm = llm or FakeLLM()
@@ -249,6 +338,26 @@ def test_cli_analyse_and_auto(tmp_path, monkeypatch):
     assert saved["chapters"] and any(s["name"] == "Анна" for s in saved["speakers"])
     assert r.invoke(app, ["markup", "check", str(book)]).exit_code == 0
     assert r.invoke(app, ["markup", "models"]).exit_code == 0
+
+
+def test_cli_says_who_shares_an_id_and_who_has_none(tmp_path):
+    from folivox.cli import app
+
+    book = tmp_path / "b.txt"
+    book.write_text("Глава 1\n\n" + P2 + "\n", encoding="utf-8")
+    b = ml.Bible("ru")
+    for i, n in enumerate("Альфа Бета Гамма Дельта Эпсилон Зита Тета Йота Каппа Лямбда Сигма Омега Ро".split()):
+        b.characters.append(ml.Character(n, gender="m", lines=40 - i, id=i + 1))
+    b.characters += [ml.Character("Хи", gender="m", lines=5, id=14, shared=True),
+                     ml.Character("Пси", gender="m", lines=4, id=14, shared=True),
+                     ml.Character("Тау", gender="m", lines=6, id=15)]  # id 15 is one man's own: no woman joins him
+    b.merge({"name": "Фи", "gender": "f", "lines": 1})
+    b.assign_ids()
+    b.save(ml.bible_path(book))
+    res = CliRunner().invoke(app, ["markup", "characters", str(book)])
+    assert res.exit_code == 0, res.output
+    assert "14 shared" in res.output and "share speaker 14" in res.output
+    assert "No speaker id left for 1" in res.output and "Фи" in res.output
 
 
 # -- voice-design prompts for the characters -----------------------------------------------------------------
