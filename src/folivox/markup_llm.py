@@ -418,8 +418,17 @@ class Runner:
                 pass
             try:
                 reply = self._complete(prompt + extra, system, 0.1 + 0.2 * attempt)
-                if self.budget is not None:  # a reply is paid for even when it is unusable
-                    self.budget.record(getattr(self.llm, "last_usage", None), sent, len(reply))
+            except (ValueError, KeyError, TypeError, AttributeError) as e:
+                # a reply the provider sent and the client rejected (a refusal, an answer cut off at the token
+                # limit) is billed too: count the usage it reported before the retry is checked against the cap
+                usage = getattr(self.llm, "last_usage", None)
+                if self.budget is not None and usage:
+                    self.budget.record(usage, sent, 0)
+                last = e
+                continue
+            if self.budget is not None:  # a reply is paid for even when it is unusable
+                self.budget.record(getattr(self.llm, "last_usage", None), sent, len(reply))
+            try:
                 out = validate(extract_json(reply))
             except ShortReply as e:
                 last = e

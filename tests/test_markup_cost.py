@@ -105,6 +105,30 @@ def test_the_cap_stops_before_the_call_that_would_pass_it_and_a_higher_cap_carri
     assert len(llm.calls) == 2 and again.spent.calls == 1 and bible.done_windows == 2
 
 
+class CutOffLLM(PaidLLM):
+    """A paid model whose replies are rejected after they are billed, as a provider's client does with an answer cut
+    off at the token limit or a refusal: the usage is reported, then the reply raises."""
+
+    def complete_json(self, prompt, system=None, temperature=0.2):
+        super().complete_json(prompt, system, temperature)
+        raise ValueError("the answer was cut off at the token limit")
+
+
+def test_a_billed_reply_that_is_rejected_counts_toward_the_cap():
+    price = mc.Price(100.0, 100.0, 100.0, 100.0)  # $0.0001 a token
+    llm = CutOffLLM(output=2000)
+    budget = mc.Budget(price)  # no cap: every rejected reply is still counted
+    ml.analyse(CH, "ru", ml.Runner(llm, "m", ml.Cache(None), budget=budget), ml.Bible())
+    assert len(llm.calls) == 4 and budget.spent.calls == 4 and budget.spent.output == 8000
+    assert budget.usd == pytest.approx(sum(n // 3 + 2000 for n in llm.sent) / 1e4)
+    # with a cap: the first cut-off reply is counted, so the retry that would pass the cap is never sent
+    llm = CutOffLLM(output=2000)
+    capped = mc.Budget(price, max_cost=0.35)
+    with pytest.raises(ml.CostCapReached):
+        ml.analyse(CH, "ru", ml.Runner(llm, "m", ml.Cache(None), budget=capped), ml.Bible())
+    assert len(llm.calls) == 1 and capped.spent.calls == 1 and capped.usd <= 0.35
+
+
 def test_a_reply_without_usage_is_counted_by_its_size():
     b = mc.Budget(mc.Price(1.0, 1.0, 0.1, 1.25))
     b.record(None, 2500, 500)
