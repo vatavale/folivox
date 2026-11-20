@@ -202,3 +202,15 @@ def test_usage_is_reported_for_the_spend_counters():
                                               text="[B0]\n  1| — Да, — сказала Анна."), ml.PARTS_SYSTEM)
     assert json.loads(reply)["blocks"] == [{"b": 0, "who": {"1": 1}}]
     assert set(llm.last_usage) == {"input", "output", "cache_read", "cache_write"}
+
+
+
+@pytest.mark.parametrize("stop", ["max_tokens", "refusal"])
+def test_a_rejected_reply_still_reports_what_it_cost(stop):
+    """A reply cut off at the token limit or refused is billed: its usage is there for the spend counter even though
+    the reply raises."""
+    llm = AnthropicLLM(model="claude-haiku-5-5", client=FakeClient(stop_reason=stop))
+    with pytest.raises(ValueError):
+        llm.complete_json("[B0] — Да, — сказала Анна.", ml.ANALYSE_SYSTEM)
+    assert llm.last_usage["output"] > 0 and llm.last_usage["input"] > 0
+
