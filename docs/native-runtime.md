@@ -74,6 +74,10 @@ Not offered automatically: AMD HIP on Windows (community builds in a fork; not p
 **Your own build.** `FOLIVOX_NATIVE_SERVER=/path/to/audiocpp_server` and `FOLIVOX_NATIVE_MODEL=/path/to/cosyvoice3.gguf`
 are used instead of the installed files (a CUDA or HIP build from source, for example); `folivox runtime` shows them.
 
+**CPU threads.** audio.cpp uses 4 CPU threads unless told otherwise, and only CosyVoice's `--threads` passes a
+count. `FOLIVOX_NATIVE_THREADS=12` gives every server Folivox starts `--threads 12` (an engine's own count still wins).
+It matters most for Drama 3 with expert layers on the CPU, where prefill runs on those threads.
+
 ## Which GPU it computes on
 
 With the Vulkan (and HIP) build the engine takes device 0, and on a laptop that is often the integrated GPU in front of
