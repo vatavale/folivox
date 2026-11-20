@@ -107,11 +107,12 @@ def routes(api_error, state, services: dict) -> list[Route]:
                 raise api_error(f"{c.name}: the speaker id must be 0..{mk.MAX_SPEAKERS - 1}")
         f = files(bid)[0]
         try:  # what the person changed by hand is not outvoted by the windows later: it is a heavy vote
-            before = {c.id: c for c in ml.Bible.load(f).characters if c.id} if f.is_file() else {}
+            before = {(c.id, c.name if c.shared else ""): c for c in ml.Bible.load(f).characters if c.id} \
+                if f.is_file() else {}
         except ml.LLMError:
             before = {}
         for c in bible.characters:
-            old = before.get(c.id)
+            old = before.get((c.id, c.name if c.shared else ""))  # a shared id is held by several
             if old is not None:
                 for what in ("gender", "age"):
                     if getattr(c, what) != getattr(old, what):

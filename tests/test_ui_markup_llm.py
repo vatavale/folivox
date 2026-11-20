@@ -232,3 +232,15 @@ def test_a_hand_made_change_of_gender_is_not_outvoted(client):
     saved = client.put(f"/api/books/{bid}/characters", json=bible).json()
     again = next(c for c in saved["characters"] if c["name"] == "Анна")
     assert again["gender"] == "m" and again["votes"]["gender"]["m"] >= 1000 and "gender" not in again["unsure"]
+
+
+def test_characters_on_a_shared_id_are_compared_with_themselves(client):
+    bid = upload(client)
+    client.post(f"/api/books/{bid}/llm/start", json={"task": "analyse"})
+    wait(client, bid)
+    bible = client.get(f"/api/books/{bid}/characters").json()
+    for c in bible["characters"]:  # both on the shared id 14 (more than 15 speakers in a real book)
+        c["id"], c["shared"] = 14, True
+    bible = client.put(f"/api/books/{bid}/characters", json=bible).json()
+    saved = client.put(f"/api/books/{bid}/characters", json=bible).json()  # saved again, nothing changed
+    assert all(max(c["votes"]["gender"].values()) < 1000 for c in saved["characters"])

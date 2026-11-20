@@ -32,11 +32,13 @@ from pathlib import Path
 
 from folivox import markup as mk
 from folivox.lang import has_speech
-from folivox.lang.attribution import PRONOUNS, RU_SAID
+from folivox.lang.attribution import NARRATOR_NAMES, PRONOUNS, RU_SAID
 
 PROMPT_VERSION = "2"
 WINDOW_CHARS = 5000
 MIN_LINES_FOR_A_VOICE = 3  # a character who speaks less than this is not counted as needing a voice of their own
+# With more than 15 speakers (the markup's ids are 1..15) the rarest share two ids, named so in the markup
+SHARED_NAMES = {14: "Other men", 15: "Other women"}
 MAX_RELEVANT = 25
 # a paragraph that opens with speech (not one that merely quotes a sign)
 DIALOGUE_START = re.compile(r"^\s*[—–―\"«„“”'‘「『]|^\s*-\s")
@@ -88,6 +90,7 @@ class Character:
     unnamed: bool = False
     id: int = 0  # speaker id in the markup (0 = not assigned)
     voice_prompts: dict = field(default_factory=dict)  # voice-design descriptions: simple / standard / detailed
+    shared: bool = False  # the id is one of the two shared by the rarest speakers (SHARED_NAMES), not their own
     votes: dict = field(default_factory=dict)  # {"gender": {"f": 3, "m": 1}, "age": {...}}: what each window said
 
     def vote(self, what: str, value: str, weight: int = 1) -> None:
@@ -115,6 +118,10 @@ class Character:
 
     def names(self) -> list[str]:
         return [self.name, *self.aliases]
+
+    def is_narrator(self) -> bool:
+        """Listed under the name "Narrator": the narrator's own voice (speaker 0) reads them, not a speaker id."""
+        return norm_name(self.name) in {norm_name(n) for n in NARRATOR_NAMES}
 
     def matches(self, name: str) -> bool:
         return any(norm_name(n) == norm_name(name) for n in self.names())
@@ -182,21 +189,41 @@ class Bible:
 
     def voices_needed(self, min_lines: int = MIN_LINES_FOR_A_VOICE) -> int:
         """Narrator plus every character who speaks at least ``min_lines`` lines."""
-        return 1 + sum(1 for c in self.characters if c.lines >= min_lines)
+        return 1 + sum(1 for c in self.characters if c.lines >= min_lines and not c.is_narrator())
 
     def assign_ids(self) -> None:
-        """Stable speaker ids 1..15: keep existing ones, give the next free id to new speakers by lines spoken.
-        With more than 15, the rarest share the ids 14 (men / unknown) and 15 (women)."""
-        used = {c.id for c in self.characters if c.id}
+        """Stable speaker ids 1..15 (the markup's range): keep existing ones, give the next free id to new speakers
+        by lines spoken. With more than 15, the rarest share the ids 14 (men / unknown) and 15 (women) and are
+        marked ``shared``. A shared id is never one that a single character already holds: a speaker who would
+        land there keeps no id (the narrator reads them) and is listed by :meth:`unassigned`. A character listed as
+        "Narrator" gets no id: speaker 0 is the narrator."""
+        holders: dict[int, list[Character]] = {}
+        for c in self.characters:
+            if c.id:
+                holders.setdefault(c.id, []).append(c)
+        for group in holders.values():  # a list saved before ``shared`` existed: an id held by several is shared
+            if len(group) > 1:
+                for c in group:
+                    c.shared = True
+        overflow = sum(1 for c in self.characters if c.lines > 0 and not c.is_narrator()) > mk.MAX_SPEAKERS - 1
         for c in sorted(self.characters, key=lambda c: -c.lines):
-            if c.id or c.lines <= 0:
+            if c.id or c.lines <= 0 or c.is_narrator():
                 continue
-            free = next((i for i in range(1, mk.MAX_SPEAKERS) if i not in used), None)
-            if free is None or (free >= 14 and sum(1 for x in self.characters if x.lines > 0) > 15):
-                c.id = 15 if c.gender == "f" else 14
+            free = next((i for i in range(1, mk.MAX_SPEAKERS)
+                         if i not in holders and not (overflow and i in SHARED_NAMES)), None)
+            if free is not None:
+                c.id, c.shared = free, False
             else:
-                c.id = free
-                used.add(free)
+                pool = 15 if c.gender == "f" else 14
+                if not all(x.shared for x in holders.get(pool, [])):
+                    continue  # one character's own id: better the narrator than that character's voice
+                c.id, c.shared = pool, True
+            holders.setdefault(c.id, []).append(c)
+
+    def unassigned(self) -> list[Character]:
+        """Speakers left without an id because all 15 are taken (the narrator reads them)."""
+        return sorted((c for c in self.characters if c.lines > 0 and not c.id and not c.is_narrator()),
+                      key=lambda c: -c.lines)
 
     def to_dict(self) -> dict:
         return {"version": 1, "lang": self.lang, "narration": self.narration, "model": self.model,
@@ -571,7 +598,8 @@ def merge_characters(bible: Bible, keep: Character, other: Character) -> None:
         keep.traits = (keep.traits + "; " + other.traits).strip("; ")[:300]
     keep.relations += [r for r in other.relations if r not in keep.relations][:12 - len(keep.relations)]
     keep.first = min([x for x in (keep.first, other.first) if x >= 0], default=-1)
-    keep.id = keep.id or other.id
+    if not keep.id:
+        keep.id, keep.shared = other.id, other.shared
     bible.characters = [c for c in bible.characters if c is not other]
 
 
@@ -1000,6 +1028,31 @@ def second_opinion(chapters: list, lang: str, bible: Bible, runner: Runner, mark
     return settled, sum(len(c.review) for c in markup.chapters.values())
 
 
+def sync_speakers(markup: mk.Markup, bible: Bible) -> None:
+    """Give every character with an id its speaker in the markup. A shared id (more than 15 speakers) is named as
+    shared and lists the names of everyone on it, so it is never mistaken for one of them."""
+    for c in bible.characters:
+        if not c.id:
+            continue
+        if c.shared:
+            on_it = [x for x in bible.characters if x.id == c.id]
+            label = SHARED_NAMES.get(c.id, f"Speaker {c.id} (shared)")
+            sp = markup.ensure_speaker(c.id, label)
+            if not sp.name or sp.name.startswith("Speaker ") or any(sp.name == x.name for x in on_it):
+                sp.name = label  # also replaces the name of the first character put there before
+                sp.notes = "" if sp.notes in {x.traits for x in on_it} else sp.notes
+            genders = {x.gender for x in on_it}
+            sp.gender = sp.gender if sp.gender in genders else (genders.pop() if len(genders) == 1 else "")
+            sp.aliases = [n for x in on_it for n in x.names()][:8]
+            continue
+        sp = markup.ensure_speaker(c.id, c.name)
+        if sp.name.startswith("Speaker ") or not sp.name:
+            sp.name = c.name
+        sp.gender = sp.gender or c.gender
+        sp.aliases = c.aliases[:8]
+        sp.notes = sp.notes or c.traits
+
+
 def annotate(chapters: list, lang: str, bible: Bible, runner: Runner, markup: mk.Markup | None = None, *,
              expression_tags: bool = False, chapter_filter: set[int] | None = None,
              save: Callable[[mk.Markup, Bible], None] | None = None, progress: Progress | None = None,
@@ -1027,16 +1080,6 @@ def annotate(chapters: list, lang: str, bible: Bible, runner: Runner, markup: mk
     others = other_languages(chapters, lang) if by_parts and other_langs is None else list(other_langs or ())
     recent_names: list[str] = []
     recent_ctx: list[str] = []
-
-    def sync_speakers() -> None:
-        for c in bible.characters:
-            if c.id:
-                sp = markup.ensure_speaker(c.id, c.name)
-                if sp.name.startswith("Speaker ") or not sp.name:
-                    sp.name = c.name
-                sp.gender = sp.gender or c.gender
-                sp.aliases = c.aliases[:8]
-                sp.notes = sp.notes or c.traits
 
     last_window = {w.chapter: n for n, w in enumerate(wins)}
     for n, w in enumerate(wins):
@@ -1083,7 +1126,7 @@ def annotate(chapters: list, lang: str, bible: Bible, runner: Runner, markup: mk
             if not c.id and c.lines <= 0:
                 c.lines = 1
         bible.assign_ids()
-        sync_speakers()
+        sync_speakers(markup, bible)
         ids = {c.id for c in bible.characters if c.id} | {0}
         by_name = {c.id: c.name for c in bible.characters if c.id}
         seen: set[int] = set()
