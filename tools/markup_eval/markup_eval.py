@@ -502,13 +502,14 @@ def spend(rundir: Path, prices: dict) -> dict:
 
 
 def report(work: Path, cfg: dict, labels: list[str] | None = None) -> list[dict]:
-    gold = json.loads((work / "books" / "gold.json").read_text(encoding="utf-8"))
-    chars = sum(len((work / "books" / f"{n}.txt").read_text(encoding="utf-8")) for n in gold)
     rows = []
     for rundir in sorted((work / "runs").iterdir()) if (work / "runs").is_dir() else []:
         if (labels and rundir.name not in labels) or not (rundir / "score.json").is_file():
             continue
-        t = json.loads((rundir / "score.json").read_text(encoding="utf-8"))["total"]
+        scored = json.loads((rundir / "score.json").read_text(encoding="utf-8"))
+        t = scored["total"]
+        # the excerpts this run covered (a run may take only some of them, --books)
+        chars = sum(len((work / "books" / f"{n}.txt").read_text(encoding="utf-8")) for n in scored["books"]) or 1
         meta = json.loads((rundir / "run.json").read_text(encoding="utf-8")) if (rundir / "run.json").is_file() else {}
         secs = sum(json.loads(f.read_text(encoding="utf-8"))["seconds"] for f in rundir.glob("*.time.json"))
         s = spend(rundir, cfg.get("prices", {}))

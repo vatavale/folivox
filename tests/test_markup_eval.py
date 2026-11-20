@@ -84,6 +84,13 @@ def test_prepare_then_score_by_quote_type_and_character_list(tmp_path):
     (run / "Tale.markup.json").write_text(json.dumps(markup), encoding="utf-8")
     (run / "Tale.characters.json").write_text(json.dumps(bible), encoding="utf-8")
     t = ev.score(work, cfg, "t")["total"]
+    (run / "calls.jsonl").write_text(json.dumps({"model": "some-model", "status": 200, "usage": {
+        "input": 1000, "output": 500, "cache_read": 0, "cache_write": 0}}) + "\n", encoding="utf-8")
+    (run / "Tale.time.json").write_text(json.dumps({"seconds": 10, "rc": 0}), encoding="utf-8")
+    row = ev.report(work, cfg)[0]
+    size = len(text)
+    assert row["usd_per_500k"] == pytest.approx((1000 * 1.0 + 500 * 2.0) / 1e6 * 500_000 / size)
+    assert row["secs_per_10k"] == pytest.approx(10 / size * 1e4) and row["calls"] == 1
     assert (t["quotes"], t["aligned"], t["unattributed"]) == (4, 4, 1)
     assert t["accuracy"] == pytest.approx(2 / 4) and t["lenient"] == pytest.approx(3 / 4)
     assert (t["explicit"], t["anaphoric"], t["implicit"]) == (pytest.approx(1 / 2), 1.0, 0.0)
