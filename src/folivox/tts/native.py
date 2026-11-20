@@ -52,6 +52,20 @@ class Spec:
     options: tuple[tuple[str, object], ...] = ()  # extra session options, e.g. fish_drama3.cpu_expert_layers
 
 
+THREADS_ENV = "FOLIVOX_NATIVE_THREADS"
+
+
+def env_threads() -> int | None:
+    """``FOLIVOX_NATIVE_THREADS``: CPU threads for every server, for engines that set none (the Fish builds never do);
+    unset, audio.cpp's own default (4). Drama 3's CPU-expert layers run much faster with more."""
+    raw = os.environ.get(THREADS_ENV, "").strip()
+    if not raw:
+        return None
+    if not raw.isdigit() or int(raw) < 1:
+        raise NativeError(f"{THREADS_ENV} must be a whole number of CPU threads, 1 or more (got {raw!r})")
+    return int(raw)
+
+
 def server_command(server: Path) -> list[str]:
     """How to start the server executable (tests replace this with a fake)."""
     return [str(server)]
@@ -81,6 +95,7 @@ class Server:
     # -- life cycle
     def start(self) -> None:
         sp = self.spec
+        threads = sp.threads or env_threads()  # an engine's own count (CosyVoice's --threads) wins
         self.port = free_port()
         self._tmp = Path(tempfile.mkdtemp(prefix="folivox-native-"))
         cfg = {"host": "127.0.0.1", "port": self.port, "backend": sp.backend, "lazy_load": False,
@@ -94,8 +109,8 @@ class Server:
         if log.exists() and log.stat().st_size > 2_000_000:
             log.write_bytes(log.read_bytes()[-200_000:])
         cmd = [*server_command(sp.server), "--config", str(cfg_path), "--no-ui", "--log", "--log-file", str(log)]
-        if sp.threads:
-            cmd += ["--threads", str(sp.threads)]
+        if threads:
+            cmd += ["--threads", str(threads)]
         if sp.device is not None:
             cmd += ["--device", str(sp.device)]
         out = log.open("ab")
