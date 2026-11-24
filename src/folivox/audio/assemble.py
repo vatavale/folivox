@@ -135,7 +135,9 @@ def write_m4b(chapters: list[ChapterAudio], out: Path, meta: BookMeta, cover: by
         for c in chapters:
             start, t = t, t + int(round(c.duration * 1000))
             md += ["[CHAPTER]", "TIMEBASE=1/1000", f"START={start}", f"END={t}", f"title={_escape_meta(c.title)}"]
-        (tmpd / "meta.txt").write_text("\n".join(md) + "\n", encoding="utf-8")
+        # newline="\n": text mode would write "\r\n" on Windows, and ffmpeg then reads the escaped line break of a
+        # multi-line comment as an escaped "\r" and ends the value there
+        (tmpd / "meta.txt").write_text("\n".join(md) + "\n", encoding="utf-8", newline="\n")
 
         args = ["-f", "concat", "-safe", "0", "-i", str(lst), "-i", str(tmpd / "meta.txt")]
         maps = ["-map", "0:a", "-map_metadata", "1", "-map_chapters", "1"]

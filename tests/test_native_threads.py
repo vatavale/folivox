@@ -6,7 +6,6 @@ argv and then serves as tests/native_fakes.py does.
 """
 
 import json
-import stat
 import sys
 from pathlib import Path
 
@@ -21,14 +20,15 @@ FAKE = Path(__file__).with_name("native_fakes.py")
 @pytest.fixture
 def started(tmp_path, monkeypatch):
     """Starts a server for a spec, as the engines do, and returns the argv the server executable was given."""
-    srv, argv_log = tmp_path / "bin" / "audiocpp_server", tmp_path / "argv.json"
+    srv, argv_log, rec = tmp_path / "bin" / "audiocpp_server", tmp_path / "argv.json", tmp_path / "rec.py"
     srv.parent.mkdir()
-    srv.write_text(f"#!{sys.executable}\n"
-                   "import json, os, runpy, sys\n"
+    srv.write_bytes(b"x")  # only has to exist: the command that really runs is the recorder below (a shebang file
+    #                        is not executable on Windows)
+    rec.write_text("import json, runpy, sys\n"
                    f"open({str(argv_log)!r}, 'w').write(json.dumps(sys.argv[1:]))\n"
                    f"sys.argv[0] = {str(FAKE)!r}\n"
                    f"runpy.run_path({str(FAKE)!r}, run_name='__main__')\n", encoding="utf-8")
-    srv.chmod(srv.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setattr(native, "server_command", lambda server: [sys.executable, str(rec)])
     monkeypatch.setattr(native.Server, "log_tail", staticmethod(lambda n=600: ""))
     monkeypatch.setenv("FOLIVOX_NATIVE_DIR", str(tmp_path / "native"))  # the server's log file goes under it
     monkeypatch.delenv("FOLIVOX_NATIVE_THREADS", raising=False)
