@@ -670,7 +670,7 @@ def assemble(journal: Journal, book: Book, opts: RenderOptions, sample_rate: int
         raise RuntimeError("Nothing to assemble: no chapter is fully rendered")
     m = opts.meta
     meta = BookMeta(m.get("title") or book.title, m.get("author") or book.author, m.get("year") or book.year,
-                    m.get("description") or book.annotation, m.get("narrator") or opts.narrator,
+                    attributed(m.get("description") or book.annotation, opts.tts), m.get("narrator") or opts.narrator,
                     m.get("series", ""), m.get("series_part", ""), m.get("genre", ""))
     cover = None if opts.no_cover else (opts.cover.read_bytes() if opts.cover else book.cover)
     events.stage("encode", "Encoding {fmt}".format(fmt="MP3" if opts.mp3 else "M4B"))
@@ -694,6 +694,22 @@ def is_fish(name: str) -> bool:
     from folivox.tts import builds
 
     return builds.is_fish_engine(name)
+
+
+COMMENT_LIMIT = 1000  # characters of the comment tag that write_m4b and write_mp3s keep
+
+
+def attributed(comment: str, engine: str) -> str:
+    """The book's comment tag (Audiobookshelf's description) for a render with ``engine``. A Fish engine's, local or
+    online, ends with the attribution its licence asks for; a long description is shortened so the cut keeps it."""
+    from folivox.tts.licences import ATTRIBUTION
+
+    if not (is_fish(engine) or engine == "fish"):
+        return comment
+    if not comment.strip():
+        return ATTRIBUTION
+    sep = "\n\n"
+    return comment[:COMMENT_LIMIT - len(sep) - len(ATTRIBUTION)].rstrip() + sep + ATTRIBUTION
 
 
 def takes_tags(name: str) -> bool:
