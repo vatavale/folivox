@@ -284,13 +284,27 @@ def _print_bible(bible) -> None:
     for col in ("Id", "Name", "Aliases", "Gender", "Age", "Lines", "Speech"):
         t.add_column(col)
     for c in sorted(bible.characters, key=lambda c: -c.lines):
-        t.add_row(str(c.id or "-"), c.name + (" (unnamed)" if c.unnamed else ""), ", ".join(c.aliases[:4]),
+        t.add_row(f"{c.id} shared" if c.shared else str(c.id or "-"), c.name + (" (unnamed)" if c.unnamed else ""),
+                  ", ".join(c.aliases[:4]),
                   c.gender or "?", c.age or "?", str(c.lines), c.traits)
     console.print(t)
     n = bible.voices_needed()
     speaking = sum(1 for c in bible.characters if c.lines > 0)
     console.print(f"Voices needed: [bold]{n}[/] (the narrator and {n - 1} character(s) with 3+ lines; "
                   f"{speaking} characters speak in all). Narration: {bible.narration or 'unknown'}-person.")
+    _print_id_overflow(bible)
+
+
+def _print_id_overflow(bible) -> None:
+    """Say so when more than 15 characters speak: who shares a speaker id, who has none."""
+    shared = [c for c in bible.characters if c.shared]
+    if shared:
+        console.print(f"More than 15 characters speak: the {len(shared)} who speak least share speaker 14 (men and "
+                      "unknown) or 15 (women), one voice for each of the two.")
+    left = bible.unassigned()
+    if left:
+        console.print(f"[yellow]No speaker id left for {len(left)}[/] ({', '.join(c.name for c in left[:6])}"
+                      f"{', …' if len(left) > 6 else ''}): the narrator reads them.")
 
 
 @markup_app.command("characters", help="Show the saved character list of a book.")
@@ -370,6 +384,7 @@ def markup_auto(book_path: Path = typer.Argument(...), depth: int = typer.Option
         console.print(f"[yellow]The model left out {stats.skipped} paragraph(s) with speech[/] (asked again, "
                       f"{stats.short_windows} window(s) stayed short): the narrator reads them and they are on the "
                       "review list. Run the same command again to ask about them once more.")
+    _print_id_overflow(bible)
     console.print("Check and fix it with `folivox markup export` / `import`, assign voices with "
                   "`folivox markup speaker`.")
 
