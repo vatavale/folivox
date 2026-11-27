@@ -135,6 +135,31 @@ def test_a_reply_without_usage_is_counted_by_its_size():
     assert b.spent.estimated == 1 and b.spent.input == 1000 and b.spent.output == 400
 
 
+class NoUsageLLM:
+    """A paid model whose replies report no usage (last_usage stays None)."""
+
+    last_usage = None
+
+    def __init__(self):
+        self.calls = 0
+
+    def complete_json(self, prompt, system=None, temperature=0.2):
+        self.calls += 1
+        return '{"ok": true}'
+
+
+def test_cap_counts_a_reply_with_no_usage_from_its_length():
+    price = mc.Price(100.0, 100.0, 100.0, 100.0)  # $0.0001 a token
+    llm = NoUsageLLM()
+    budget = mc.Budget(price, max_cost=0.02)  # room for the first call (about $0.018), not for a second
+    runner = ml.Runner(llm, "m", ml.Cache(None), budget=budget)
+    runner.ask("s" * 100, "p" * 150, lambda d: d)
+    assert budget.spent.estimated == 1 and 0 < budget.usd < 0.02  # counted from the lengths of prompt and reply
+    with pytest.raises(ml.CostCapReached):
+        runner.ask("s" * 100, "q" * 150, lambda d: d)
+    assert llm.calls == 1
+
+
 def test_the_estimate_counts_the_calls_and_prompts_a_run_sends():
     chapters = [Chapter(f"Глава {i}", [Block(BlockKind.PARAGRAPH, f"{b.text} ({i})") for b in ch.blocks])
                 for i in range(3) for ch in CH]  # a few windows per pass, none the same as another
