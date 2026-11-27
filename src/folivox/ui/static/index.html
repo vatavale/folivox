@@ -2412,7 +2412,7 @@ function handle(ev) {
 const ENG = { list: [], voices: {}, tm: null, cur() { return this.list.find(e => e.name === $("#o-tts").value) || this.list[0]; }, cloud() { const e = this.cur(); return !!e && e.cloud; } };
 function engOptions() {
   if (ENG.cur() && ENG.cur().fish) return { tts: ENG.cur().name, tts_build: $("#o-tts_build").value || "auto" };
-  if (!ENG.cloud()) return {};
+  if (!ENG.cloud()) return ENG.cur() ? { tts: ENG.cur().name } : {};  // name the local engine too, or FOLIVOX_TTS / [providers] tts decides
   const cap = $("#o-max_cost").value;
   const base = { tts: ENG.cur().name, tts_model: $("#o-tts_model").value, tts_style: $("#o-tts_style").value, max_cost: cap ? +cap : null,
                  tts_parallel: $("#o-tts_parallel").value ? +$("#o-tts_parallel").value : null, tts_rpm: $("#o-tts_rpm").value !== "" ? +$("#o-tts_rpm").value : null };
