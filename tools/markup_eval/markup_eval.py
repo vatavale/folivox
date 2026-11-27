@@ -3,7 +3,7 @@
 
     python tools/markup_eval/markup_eval.py fetch                  # PDNC at a pinned commit (CC BY 4.0), ~9 MB
     python tools/markup_eval/markup_eval.py prepare                # cut the excerpts, the gold quotations
-    python tools/markup_eval/markup_eval.py run haiku --llm anthropic --model claude-haiku-5-5
+    python tools/markup_eval/markup_eval.py run sonnet --llm openai --model some/model
     python tools/markup_eval/markup_eval.py score haiku
     python tools/markup_eval/markup_eval.py report                 # every scored run, side by side
 
@@ -548,7 +548,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--pdnc", type=Path, help="an existing PDNC data directory (default WORK/pdnc)")
     p = sub.add_parser("run", help="run folivox markup auto over every excerpt")
     p.add_argument("label")
-    p.add_argument("--llm", required=True, help="ollama | openai | anthropic")
+    p.add_argument("--llm", required=True, help="the folivox provider: ollama | openai")
     p.add_argument("--model", required=True)
     p.add_argument("--best", action="store_true", help="folivox's --best mode")
     p.add_argument("--books", help="comma-separated excerpt names (default: all)")

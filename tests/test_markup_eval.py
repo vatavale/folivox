@@ -166,6 +166,6 @@ def test_a_run_points_folivox_at_the_proxy_and_keeps_the_users_settings():
     toml = ev.run_config({"llm": {"openai": {"model": "m", "api_key_env": "MY_KEY"}}, "providers": {"llm": "x"}}, P(),
                          "Tale")
     assert 'base_url = "http://127.0.0.1:1/openai/Tale"' in toml and 'api_key_env = "MY_KEY"' in toml
-    cmd = ev.folivox_command(Path("b.txt"), "anthropic", "claude-haiku-5-5", True, ["--fresh"])
-    assert cmd[3:] == ["markup", "auto", "b.txt", "--llm", "anthropic", "--model", "claude-haiku-5-5", "--best",
+    cmd = ev.folivox_command(Path("b.txt"), "openai", "some/model", True, ["--fresh"])
+    assert cmd[3:] == ["markup", "auto", "b.txt", "--llm", "openai", "--model", "some/model", "--best",
                        "--fresh"]

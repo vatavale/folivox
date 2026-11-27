@@ -3,7 +3,7 @@
 Measures how well `folivox markup auto` attributes speakers, with any provider and model, against the
 [Project Dialogism Novel Corpus](https://github.com/Priya22/project-dialogism-novel-corpus) (PDNC: every quotation of
 28 English novels annotated with its speaker), and what each run costs in time and tokens. A developer tool, not part
-of the package.
+of the package: it needs nothing beyond Folivox and its own dependencies (no extra install).
 
 ```bash
 python tools/markup_eval/markup_eval.py fetch      # PDNC files for the excerpts, from a pinned commit
@@ -50,8 +50,9 @@ model, status, time and token usage, never the request headers.
 
 ## Caveats
 
-- Folivox sends no temperature, so runs vary: run each model at least twice. Gpt-style models swung up to 16 points
+- Runs vary between tries, so run each model at least twice. Gpt-style models swung up to 16 points
   between runs, mostly on the first-person book.
+- The logging proxy reads non-streamed replies only (Folivox does not stream), so a streamed reply would show no usage.
 - About six PDNC gold labels look wrong, which caps the top score near 99%.
 - Three excerpts are a small sample, all English and all nineteenth- or early twentieth-century prose.
 
