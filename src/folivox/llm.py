@@ -7,8 +7,10 @@ llama.cpp / vLLM server…) with the user's own key.
 from __future__ import annotations
 
 import http.client
+import io
 import json
 import os
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 
@@ -142,20 +144,60 @@ class Ollama(LLM):
             return []
 
 
+def _rejects_temperature(code: int, body: bytes) -> bool:
+    """A 400 saying the model takes no temperature but its default (OpenAI's reasoning models)."""
+    if code != 400:
+        return False
+    try:
+        err = json.loads(body).get("error") or {}
+    except (ValueError, AttributeError):
+        return False
+    return err.get("param") == "temperature" or "'temperature'" in str(err.get("message", ""))
+
+
 class OpenAICompatible(LLM):
+    """Config (``[llm.openai]``): ``model``, ``base_url``, ``temperature`` (unset: the one each call asks for, 0.2 for
+    JSON and 0.3 otherwise; a number: that one for every call), ``reasoning_effort`` (sent as it is, for a reasoning
+    model: OpenAI's take ``none`` … ``xhigh``; unset: the model's default). Most reasoning models accept only
+    their default temperature unless the reasoning effort is ``none``: when the server says so, the calls go on
+    without one."""
+
     name = "openai"
 
     def __init__(self, model: str = "gpt-5-mini", base_url: str = "https://api.openai.com/v1",
-                 api_key_env: str = "OPENAI_API_KEY"):
+                 api_key_env: str = "OPENAI_API_KEY", temperature: float | None = None,
+                 reasoning_effort: str | None = None):
         from folivox.config import api_key
 
         self.model, self.base_url = model, base_url.rstrip("/")
         self.key = api_key(api_key_env, "LLM")
+        self.temperature = None if temperature is None else float(temperature)
+        self.reasoning_effort = str(reasoning_effort) if reasoning_effort else None
+        self.sends_temperature = True  # False once the server has refused one (the model takes only its default)
+
+    def request(self, msgs: list[dict], temperature: float | None) -> dict:
+        body: dict = {"model": self.model, "messages": msgs}
+        if self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
+        t = self.temperature if self.temperature is not None else temperature
+        if t is not None and self.sends_temperature:
+            body["temperature"] = t
+        return body
 
     def complete(self, prompt, system=None, temperature=0.3):
         msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
-        r = _post(f"{self.base_url}/chat/completions", {"model": self.model, "messages": msgs},
-                  {"Authorization": f"Bearer {self.key}"})
+        body = self.request(msgs, temperature)
+        url, headers = f"{self.base_url}/chat/completions", {"Authorization": f"Bearer {self.key}"}
+        try:
+            r = _post(url, body, headers)
+        except urllib.error.HTTPError as e:
+            if "temperature" not in body:
+                raise
+            answer = e.read()
+            if not _rejects_temperature(e.code, answer):  # the same error, its body readable again
+                raise urllib.error.HTTPError(e.url, e.code, e.msg, e.hdrs, io.BytesIO(answer)) from None
+            self.sends_temperature = False
+            r = _post(url, self.request(msgs, temperature), headers)
         return (r["choices"][0]["message"]["content"] or "").strip()  # null content: a refusal or a filtered reply
 
 

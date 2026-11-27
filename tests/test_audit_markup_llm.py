@@ -49,8 +49,8 @@ def test_post_turns_incomplete_read_into_oserror(monkeypatch):
 
 def test_openai_null_content_is_empty(monkeypatch):
     monkeypatch.setattr(llm_mod, "_post", lambda *a, **k: {"choices": [{"message": {"content": None}}]})
-    o = llm_mod.OpenAICompatible.__new__(llm_mod.OpenAICompatible)
-    o.model, o.base_url, o.key = "m", "http://x", "k"
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    o = llm_mod.OpenAICompatible(model="m", base_url="http://x")
     assert o.complete("hi") == ""
 
 
