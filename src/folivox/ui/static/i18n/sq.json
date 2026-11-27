@@ -635,6 +635,8 @@
  "mk.adv": "Personazhet dhe zërat…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "mbeten {t}",
+ "mk.cost": "≈ ${usd}, deri në ${max}",
+ "mk.cost.unknown": "{n} tokena, çmimi i panjohur",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} orë {m} min",

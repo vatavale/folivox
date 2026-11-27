@@ -635,6 +635,8 @@
  "mk.adv": "Personer og stemmer…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} tilbage",
+ "mk.cost": "≈ ${usd}, op til ${max}",
+ "mk.cost.unknown": "{n} tokens, pris ukendt",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} t {m} min",

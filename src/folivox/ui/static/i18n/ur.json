@@ -635,6 +635,8 @@
  "mk.adv": "کردار اور آوازیں…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} باقی",
+ "mk.cost": "≈ ${usd}, زیادہ سے زیادہ ${max}",
+ "mk.cost.unknown": "{n} ٹوکن، قیمت معلوم نہیں",
  "mk.dur.under": "< 1 منٹ",
  "mk.dur.min": "{n} منٹ",
  "mk.dur.hm": "{h} گھنٹے {m} منٹ",

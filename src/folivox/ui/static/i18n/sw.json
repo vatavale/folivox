@@ -635,6 +635,8 @@
  "mk.adv": "Wahusika na sauti…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} zimebaki",
+ "mk.cost": "≈ ${usd}, hadi ${max}",
+ "mk.cost.unknown": "tokeni {n}, bei haijulikani",
  "mk.dur.under": "< dak 1",
  "mk.dur.min": "dak {n}",
  "mk.dur.hm": "saa {h} dak {m}",

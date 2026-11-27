@@ -635,6 +635,8 @@
  "mk.adv": "Liki in glasovi …",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "še {t}",
+ "mk.cost": "≈ ${usd}, do ${max}",
+ "mk.cost.unknown": "{n} žetonov, cena neznana",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} h {m} min",

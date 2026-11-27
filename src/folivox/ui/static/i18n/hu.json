@@ -635,6 +635,8 @@
  "mk.adv": "Szereplők és hangok…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} van hátra",
+ "mk.cost": "≈ ${usd}, legfeljebb ${max}",
+ "mk.cost.unknown": "{n} token, az ár ismeretlen",
  "mk.dur.under": "< 1 p",
  "mk.dur.min": "{n} p",
  "mk.dur.hm": "{h} ó {m} p",

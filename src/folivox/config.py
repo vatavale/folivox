@@ -18,6 +18,8 @@ Example::
     base_url = "https://openrouter.ai/api/v1"
     model = "some/model"
     api_key_env = "OPENROUTER_API_KEY"   # the key itself stays in the environment
+    price_in = 0.5                   # optional: USD per million tokens, for the markup cost estimate and --max-cost
+    price_out = 2.0                  # (well-known models have built-in list prices, see folivox.markup_cost)
 
     [voicegen.qwen3-voicedesign]
     python = "~/.local/share/tts-bench/qwen3tts/.venv/bin/python"

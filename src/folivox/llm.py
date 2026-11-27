@@ -17,6 +17,10 @@ from folivox.providers import Registry
 
 class LLM:
     name = ""
+    # what the last reply cost in tokens, as the server reported it (None when it did not say):
+    # {"input": uncached prompt tokens, "output": reply tokens (reasoning included), "cache_read": prompt tokens served
+    # from the provider's cache, "cache_write": prompt tokens written to it}
+    last_usage: dict | None = None
 
     def complete(self, prompt: str, system: str | None = None, temperature: float = 0.3) -> str:
         raise NotImplementedError
@@ -57,6 +61,22 @@ def _post(url: str, payload: dict, headers: dict | None = None, timeout: float =
         raise ConnectionError(f"the server broke off the reply: {e!r}") from None
 
 
+def _ollama_usage(r: dict) -> dict | None:
+    if "prompt_eval_count" not in r and "eval_count" not in r:
+        return None
+    return {"input": int(r.get("prompt_eval_count") or 0), "output": int(r.get("eval_count") or 0),
+            "cache_read": 0, "cache_write": 0}
+
+
+def _openai_usage(u: object) -> dict | None:
+    """OpenAI-style ``usage``: prompt tokens include the cached ones, the reply tokens include the reasoning."""
+    if not isinstance(u, dict) or "prompt_tokens" not in u:
+        return None
+    cached = int((u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0)
+    return {"input": int(u.get("prompt_tokens") or 0) - cached, "output": int(u.get("completion_tokens") or 0),
+            "cache_read": cached, "cache_write": 0}
+
+
 class Ollama(LLM):
     name = "ollama"
 
@@ -71,6 +91,7 @@ class Ollama(LLM):
         msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
         r = _post(f"{self.host}/api/chat", {"model": self.model, "messages": msgs, "stream": False, "think": False,
                                             "options": {"temperature": temperature, "num_ctx": self.num_ctx}})
+        self.last_usage = _ollama_usage(r)
         return r["message"]["content"].strip()
 
     def complete_json(self, prompt, system=None, temperature=0.2):
@@ -78,6 +99,7 @@ class Ollama(LLM):
         r = _post(f"{self.host}/api/chat", {"model": self.model, "messages": msgs, "stream": False, "think": False,
                                             "format": "json",
                                             "options": {"temperature": temperature, "num_ctx": self.num_ctx}})
+        self.last_usage = _ollama_usage(r)
         return r["message"]["content"].strip()
 
     def running(self) -> bool:
@@ -146,16 +168,18 @@ class OpenAICompatible(LLM):
     name = "openai"
 
     def __init__(self, model: str = "gpt-5-mini", base_url: str = "https://api.openai.com/v1",
-                 api_key_env: str = "OPENAI_API_KEY"):
+                 api_key_env: str = "OPENAI_API_KEY", price_in: float | None = None, price_out: float | None = None):
         from folivox.config import api_key
 
         self.model, self.base_url = model, base_url.rstrip("/")
         self.key = api_key(api_key_env, "LLM")
+        self.price_in, self.price_out = price_in, price_out  # USD per million tokens (config), see markup_cost
 
     def complete(self, prompt, system=None, temperature=0.3):
         msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
         r = _post(f"{self.base_url}/chat/completions", {"model": self.model, "messages": msgs},
                   {"Authorization": f"Bearer {self.key}"})
+        self.last_usage = _openai_usage(r.get("usage"))
         return (r["choices"][0]["message"]["content"] or "").strip()  # null content: a refusal or a filtered reply
 
 

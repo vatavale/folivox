@@ -635,6 +635,8 @@
  "mk.adv": "চরিত্র ও ভয়েস…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} বাকি",
+ "mk.cost": "≈ ${usd}, সর্বোচ্চ ${max}",
+ "mk.cost.unknown": "{n} টোকেন, দাম অজানা",
  "mk.dur.under": "< 1 মি",
  "mk.dur.min": "{n} মি",
  "mk.dur.hm": "{h} ঘ {m} মি",

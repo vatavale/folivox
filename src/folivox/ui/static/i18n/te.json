@@ -635,6 +635,8 @@
  "mk.adv": "పాత్రలు మరియు స్వరాలు…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} మిగిలింది",
+ "mk.cost": "≈ ${usd}, గరిష్ఠంగా ${max}",
+ "mk.cost.unknown": "{n} టోకెన్లు, ధర తెలియదు",
  "mk.dur.under": "< 1 నిమి",
  "mk.dur.min": "{n} నిమి",
  "mk.dur.hm": "{h} గం {m} నిమి",

@@ -635,6 +635,8 @@
  "mk.adv": "角色与声音…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "还剩 {t}",
+ "mk.cost": "≈ ${usd}（最多 ${max}）",
+ "mk.cost.unknown": "{n} 个 token，价格未知",
  "mk.dur.under": "< 1 分钟",
  "mk.dur.min": "{n} 分钟",
  "mk.dur.hm": "{h} 小时 {m} 分钟",

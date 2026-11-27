@@ -635,6 +635,8 @@
  "mk.adv": "Veikėjai ir balsai…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "liko {t}",
+ "mk.cost": "≈ ${usd}, iki ${max}",
+ "mk.cost.unknown": "{n} žetonų, kaina nežinoma",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} val. {m} min",

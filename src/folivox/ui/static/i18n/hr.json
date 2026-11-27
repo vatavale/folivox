@@ -635,6 +635,8 @@
  "mk.adv": "Likovi i glasovi…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "preostalo {t}",
+ "mk.cost": "≈ ${usd}, do ${max}",
+ "mk.cost.unknown": "{n} tokena, cijena nepoznata",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} h {m} min",

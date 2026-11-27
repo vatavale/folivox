@@ -635,6 +635,8 @@
  "mk.adv": "Karaktärer och röster…",
  "mk.eta.approx": "≈ {t}",
  "mk.eta.left": "{t} kvar",
+ "mk.cost": "≈ ${usd}, upp till ${max}",
+ "mk.cost.unknown": "{n} token, priset okänt",
  "mk.dur.under": "< 1 min",
  "mk.dur.min": "{n} min",
  "mk.dur.hm": "{h} h {m} min",
