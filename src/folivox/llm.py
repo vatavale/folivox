@@ -163,3 +163,6 @@ LLMS: Registry = Registry("llm", default="ollama")
 LLMS.register("ollama", Ollama, "Local models via Ollama (default model gemma4:31b-it-qat)", needs="ollama")
 LLMS.register("openai", OpenAICompatible, "OpenAI-compatible chat API: OpenAI, OpenRouter, llama.cpp… (your key)",
               local=False, needs="OPENAI_API_KEY")
+LLMS.register("anthropic", "folivox.llm_anthropic:AnthropicLLM",
+              "Claude through Anthropic's API, with prompt caching (your key; pip install 'folivox[anthropic]')",
+              local=False, needs="ANTHROPIC_API_KEY")

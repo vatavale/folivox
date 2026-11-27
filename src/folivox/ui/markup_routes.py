@@ -74,11 +74,17 @@ def routes(api_error, state, services: dict) -> list[Route]:
 
     async def models(request: Request):
         from folivox import config, diag
-        from folivox.llm import GEMMA_TIERS, Ollama, recommend_model
+        from folivox.llm import GEMMA_TIERS, LLMS, Ollama, recommend_model
 
+        provider = config.provider("llm") or LLMS.default
+        if not LLMS.get(provider).local:  # a paid API: its configured model (none: its own default), no downloads
+            return JSONResponse({"provider": provider, "local": False,
+                                 "configured": config.section(f"llm.{provider}").get("model", ""), "known": [],
+                                 "installed": [], "tiers": [], "running": True, "recommended": ""})
         ram = diag.ram_gb()
         ollama = Ollama()
-        return JSONResponse({"ram_gb": ram, "recommended": recommend_model(ram), "running": ollama.running(),
+        return JSONResponse({"provider": provider, "local": True, "ram_gb": ram, "recommended": recommend_model(ram),
+                             "running": ollama.running(),
                              "free_gb": round(shutil.disk_usage(Path.home()).free / 1e9, 1),
                              "configured": config.section("llm.ollama").get("model", ""),
                              "installed": ollama.installed(),

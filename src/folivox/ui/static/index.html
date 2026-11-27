@@ -1363,6 +1363,9 @@ async function mkLlmModels() {
     const add = (name, note) => { if (name && !seen.has(name)) { seen.add(name); opts.push(`<option value="${esc(name)}">${esc(name)}${note ? " - " + esc(note) : ""}</option>`); } };
     const has = (x) => m.installed.includes(x);
     add(m.configured, t("mk.model.configured"));
+    if (m.local === false) {  // a paid API: its configured model and the well-known ones; nothing to download
+      (m.known || []).forEach(x => add(x, "")); $("#mk-model").innerHTML = opts.join(""); if (m.configured) $("#mk-model").value = m.configured; return;
+    }
     // the whole ladder, smallest (fastest) first; what is missing says so
     [...m.tiers].reverse().forEach(x => add(x.model, [`${x.download_gb} GB`, has(x.model) ? t("mk.model.installed") : t("mk.model.missing"), x.model === m.recommended ? t("mk.model.recommended") : ""].filter(Boolean).join(", ")));
     m.installed.filter(x => !x.startsWith("gemma4") && !x.includes("embed")).forEach(x => add(x, t("mk.model.installed")));
@@ -1404,6 +1407,7 @@ const mkCancelPull = () => api("/api/llm/pull/cancel", { method: "POST" });
 function mkModelButtons() {
   const m = MK.models, model = $("#mk-model").value, x = m && mkTier(m, model);
   $("#mk-dl").hidden = !(x && !m.installed.includes(model)); $("#mk-rm").hidden = !(m && m.installed.includes(model));  // any installed model, also one that is not in our list
+  if (m && m.local === false) { $("#mk-dl").hidden = $("#mk-rm").hidden = true; }
   if (x) $("#mk-dl").textContent = t("mk.dl.btn", { gb: x.download_gb });
 }
 async function mkEditorPull(model) {
@@ -1530,7 +1534,7 @@ async function mkLlm(task, attach) {
   const hasMarkup = mkHasSpans();
   if (!attach && task !== "analyse" && hasMarkup && !confirm(t("mk.again.confirm"))) return;
   let model = $("#mk-model").value;
-  if (!attach && model && MK.models && !MK.models.installed.includes(model)) {
+  if (!attach && model && MK.models && MK.models.local !== false && !MK.models.installed.includes(model)) {
     if (!MK.models.running) { msg.textContent = t("mk.dl.noollama"); return; }
     if (!mkAskDownload(model, MK.models) || !await mkEditorPull(model)) return;
   }
@@ -3138,7 +3142,7 @@ async function loadSettings() {
   $("#settings-note").textContent = t("set.file", { path: s.config_path });
   $("#o-output_dir").placeholder = s.output_dir;
 }
-const SERVICE = { GEMINI_API_KEY: "Google Gemini", OPENAI_API_KEY: "OpenAI", ELEVENLABS_API_KEY: "ElevenLabs", CARTESIA_API_KEY: "Cartesia", FISH_API_KEY: "Fish Audio" };
+const SERVICE = { GEMINI_API_KEY: "Google Gemini", OPENAI_API_KEY: "OpenAI", ANTHROPIC_API_KEY: "Anthropic", ELEVENLABS_API_KEY: "ElevenLabs", CARTESIA_API_KEY: "Cartesia", FISH_API_KEY: "Fish Audio" };
 const USED_FOR = new Proxy({}, { get: (_, k) => ["tts", "voicegen", "asr", "llm"].includes(k) ? t("used." + k) : undefined });
 async function loadKeys() {
   const { keys } = await api("/api/keys");

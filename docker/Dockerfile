@@ -24,7 +24,7 @@ RUN set -eu; \
     printf '%s\n%s\n' "$TORCH" "${TORCH/torch/torchaudio}" > /tmp/constraints.txt; \
     uv venv /opt/folivox; \
     uv pip install --python /opt/folivox/bin/python $EXTRA --constraints /tmp/constraints.txt \
-      -r pyproject.toml --extra tts --extra qa --extra ui --extra denoise
+      -r pyproject.toml --extra tts --extra qa --extra ui --extra denoise --extra anthropic
 # The heavy layer above depends on pyproject.toml only; a source change reinstalls just the package below.
 COPY src ./src
 RUN uv pip install --python /opt/folivox/bin/python --no-deps .

@@ -69,7 +69,7 @@ To build one yourself: `docker build -f docker/Dockerfile --build-arg VARIANT=cp
 | `TZ` | UTC | Time zone of the log. |
 
 API keys for cloud engines: the container has no OS keychain, so keys typed into the studio cannot be saved there.
-Pass them as environment variables (or as files, below) instead (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `FISH_API_KEY`, `CARTESIA_API_KEY`;
+Pass them as environment variables (or as files, below) instead (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `FISH_API_KEY`, `CARTESIA_API_KEY`;
 see [cloud-engines.md](cloud-engines.md)); the compose files have commented lines for them.
 
 ### Docker secrets (`*_FILE`)
