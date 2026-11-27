@@ -90,7 +90,7 @@ def test_marking_requests_put_the_instructions_and_speakers_first_and_read_them_
         assert "Paragraphs:" in window["text"] and "cache_control" not in window
         assert rules["cache_control"] == speakers["cache_control"] == {"type": "ephemeral"}
         assert r["thinking"] == {"type": "adaptive"} and "temperature" not in r
-        assert "output_config" not in r  # the answer maps part numbers to speakers: no schema can say that
+        assert "format" not in r["output_config"]  # the answer maps part numbers to speakers: no schema can say that
     # every speaker by id, the same list from window to window: later windows read the whole prefix from the cache
     lists = [r["messages"][0]["content"][1]["text"] for r in marking]
     assert len(set(lists[1:])) == 1
@@ -214,3 +214,15 @@ def test_a_rejected_reply_still_reports_what_it_cost(stop):
         llm.complete_json("[B0] — Да, — сказала Анна.", ml.ANALYSE_SYSTEM)
     assert llm.last_usage["output"] > 0 and llm.last_usage["input"] > 0
 
+
+def test_effort_defaults_to_high():
+    llm = AnthropicLLM(client=FakeClient())
+    assert llm.effort == "high"
+    assert llm._request("p", None, None)["output_config"]["effort"] == "high"
+
+
+def test_the_default_effort_is_not_sent_to_models_without_adaptive_thinking():
+    llm = AnthropicLLM(model="claude-haiku-4-5", client=FakeClient())
+    assert llm.effort is None
+    assert "effort" not in (llm._request("p", None, None).get("output_config") or {})
+    assert AnthropicLLM(model="claude-haiku-4-5", effort="low", client=FakeClient()).effort == "low"

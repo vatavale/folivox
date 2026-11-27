@@ -32,7 +32,7 @@ api_key_env = "OPENROUTER_API_KEY"
 
 [llm.anthropic]                       # pip install 'folivox[anthropic]'; key: ANTHROPIC_API_KEY
 model = "claude-opus-5-5"             # or claude-sonnet-5-5, claude-haiku-5-5
-effort = "medium"                     # optional: low | medium | high | xhigh | max (unset: the model's default)
+effort = "medium"                     # optional: low | medium | high | xhigh | max (unset: high, where the model has adaptive thinking)
 ```
 
 **Inference runtime** is a separate, general switch (not a provider): `--runtime auto|pytorch|native`,

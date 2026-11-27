@@ -21,7 +21,7 @@ Example::
 
     [llm.anthropic]                  # Claude through Anthropic's API (key: ANTHROPIC_API_KEY)
     model = "claude-opus-5-5"
-    effort = "medium"                # optional: low | medium | high | xhigh | max
+    effort = "medium"                # optional: low | medium | high | xhigh | max (default: high, older models none)
 
     [voicegen.qwen3-voicedesign]
     python = "~/.local/share/tts-bench/qwen3tts/.venv/bin/python"

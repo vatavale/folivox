@@ -163,7 +163,8 @@ and Spanish (0/15); `e4b` handled all four languages (9-12/15) but the same Engl
 
 **Claude through Anthropic's API** (`--llm anthropic`, `pip install 'folivox[anthropic]'`, key in
 `ANTHROPIC_API_KEY`, its `_FILE` form or the studio's keychain; `[llm.anthropic] model` and `effort` in
-`config.toml`, default `claude-opus-5-5`). The prompts are the same as for any other model, in another order: the
+`config.toml`, default `claude-opus-5-5` at effort `high`: on the markup benchmark `high` scored 0.7 lenient points
+above `medium` for about 7% more cost, so it is the default on models with adaptive thinking (older ones get none); set `effort = "medium"` to spend less). The prompts are the same as for any other model, in another order: the
 instructions first, then (when marking) every speaker by id, then the context and the paragraphs. The first two are
 marked for Anthropic's prompt cache, so each later window of a pass reads them at a tenth of the input price or
 less. Measured on 33,000 characters of *Pride and Prejudice* (14 calls): a third of the prompt tokens came from the

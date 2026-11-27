@@ -9,8 +9,10 @@ What it does beyond an OpenAI-compatible endpoint:
 - Adaptive thinking with an optional ``effort``, refusals (and, on models that have them, the server-side fallbacks)
   handled as an unusable answer, typed errors mapped onto the markup's retry rules.
 
-Config (``[llm.anthropic]`` in config.toml): ``model``, ``effort`` (low | medium | high | xhigh | max; unset = the
-model's own default), ``price_in`` / ``price_out`` (USD per million tokens, for cost estimates). The key comes from
+Config (``[llm.anthropic]`` in config.toml): ``model``, ``effort`` (low | medium | high | xhigh | max; ``high`` unless
+set, for models with adaptive thinking: on the markup benchmark it scored 0.7 points better than ``medium`` for about
+7% more cost, folivox#16; the older models get none),
+``price_in`` / ``price_out`` (USD per million tokens, for cost estimates). The key comes from
 ``ANTHROPIC_API_KEY`` (or ``ANTHROPIC_API_KEY_FILE``) or the OS keychain, never from the file.
 """
 
@@ -20,6 +22,8 @@ from folivox.llm import LLM
 
 DEFAULT_MODEL = "claude-opus-5-5"
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
+_UNSET = object()  # "no effort given" (None means "send none"), so the default can depend on the model
+DEFAULT_EFFORT = "high"  # +0.7 lenient points over "medium" for about 7% more cost (folivox#16)
 MAX_TOKENS = 16000  # the markup's answers are a few thousand tokens; reasoning comes out of the same budget
 # models that reject adaptive thinking (they take a fixed thinking budget, which the markup does not need)
 NO_ADAPTIVE = ("claude-haiku-4-5", "claude-sonnet-4-5", "claude-opus-4-5", "claude-opus-4-1", "claude-opus-4-0",
@@ -35,11 +39,13 @@ class AnthropicLLM(LLM):
     caches_prompts = True  # the markup sends the whole character list, which stays the same from window to window
     structured = True  # complete_json takes a JSON schema
 
-    def __init__(self, model: str = DEFAULT_MODEL, effort: str | None = None, api_key_env: str = "ANTHROPIC_API_KEY",
-                 price_in: float | None = None, price_out: float | None = None, client=None,
-                 max_tokens: int = MAX_TOKENS):
+    def __init__(self, model: str = DEFAULT_MODEL, effort: str | None | object = _UNSET,
+                 api_key_env: str = "ANTHROPIC_API_KEY", price_in: float | None = None,
+                 price_out: float | None = None, client=None, max_tokens: int = MAX_TOKENS):
         from folivox.config import api_key
 
+        if effort is _UNSET:  # nothing asked for: high, but only where the model has adaptive thinking
+            effort = None if model.startswith(NO_ADAPTIVE) else DEFAULT_EFFORT
         if effort is not None and str(effort) not in EFFORTS:
             raise ValueError(f"[llm.anthropic] effort must be one of {', '.join(EFFORTS)}, got {effort!r}")
         self.model, self.effort, self.max_tokens = model, effort, max_tokens
