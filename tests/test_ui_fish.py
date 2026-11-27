@@ -152,6 +152,23 @@ def test_default_engine_falls_back_to_cosyvoice_for_bundled_voices(client, monke
     assert r.status_code == 202, r.text
 
 
+def test_a_named_local_engine_wins_over_the_configured_fish_one(client, monkeypatch, tmp_path):
+    # what the studio sends when CosyVoice 3 is picked: that engine runs, not FOLIVOX_TTS, and a bundled voice is fine
+    monkeypatch.setenv("FOLIVOX_TTS", "fish-s2")
+    engines = []
+    app = create_app(token=TOKEN, port=8765, data_dir=tmp_path / "ui2",
+                     render=lambda b, o, e: engines.append(o.tts) or o.output)
+    c = TestClient(app, base_url="http://127.0.0.1:8765", headers={"X-Folivox-Token": TOKEN})
+    bid = upload(c)
+    r = start(c, bid, tts="cosyvoice3")
+    assert r.status_code == 202, r.text
+    for _ in range(100):
+        if c.get(f"/api/jobs/{r.json()['id']}").json()["state"] != "running":
+            break
+        time.sleep(0.05)
+    assert engines == ["cosyvoice3"]
+
+
 def test_markup_routes_store_checked_markup_and_tags(client):
     bid = upload(client)
     empty = client.get(f"/api/books/{bid}/markup").json()
