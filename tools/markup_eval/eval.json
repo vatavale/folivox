@@ -1,0 +1,77 @@
+{
+ "_comment": "Excerpts of PDNC (character offsets in each novel_text.txt), the corrections the scorer needs, and list prices in USD per million tokens (input, output, cached input read, cache write) with the date they were read. Prices change: check yours.",
+ "pdnc": {
+  "repo": "Priya22/project-dialogism-novel-corpus",
+  "commit": "e507a27b89a85c1e9710a897ad0b3f5a9ad73dc4",
+  "licence": "CC BY 4.0"
+ },
+ "excerpts": {
+  "PrideAndPrejudice": {
+   "start": 53910,
+   "end": 87251,
+   "title": "Pride and Prejudice",
+   "chapters": "VIII-X"
+  },
+  "TheSignOfTheFour": {
+   "start": 111481,
+   "end": 149139,
+   "title": "The Sign of the Four",
+   "chapters": "VIII-IX",
+   "restore_apostrophes": true
+  },
+  "TheSunAlsoRises": {
+   "start": 8080,
+   "end": 47116,
+   "title": "The Sun Also Rises",
+   "chapters": "2-4"
+  }
+ },
+ "first_person_narrator": {
+  "TheSignOfTheFour": "Dr. Watson",
+  "TheSunAlsoRises": "Jake Barnes"
+ },
+ "pdnc_same_person": {
+  "Mrs. Forrester": "Mrs. Cecil Forrester"
+ },
+ "extra_aliases": {
+  "The Patronne": [
+   "Madame Lavigne"
+  ]
+ },
+ "prices_read": "2026-11-20",
+ "prices": {
+  "claude-opus-5-5": {
+   "in": 4,
+   "out": 20,
+   "cache_read": 0.2,
+   "cache_write": 5
+  },
+  "claude-sonnet-5-5": {
+   "in": 2,
+   "out": 10,
+   "cache_read": 0.1,
+   "cache_write": 2.5
+  },
+  "claude-haiku-5-5": {
+   "in": 0.1,
+   "out": 0.5,
+   "cache_read": 0.01,
+   "cache_write": 0.125
+  },
+  "gpt-6.2-astra": {
+   "in": 8,
+   "out": 40,
+   "cache_read": 0.4
+  },
+  "gpt-6.2-sol": {
+   "in": 2,
+   "out": 10,
+   "cache_read": 0.1
+  },
+  "gpt-6-luna": {
+   "in": 0.1,
+   "out": 0.5,
+   "cache_read": 0.01
+  }
+ }
+}
