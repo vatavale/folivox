@@ -974,7 +974,10 @@ At most one tag per sentence, none when the text does not call for it; most para
 class AnnotateStats:
     blocks: int = 0
     marked: int = 0
-    fell_back: int = 0
+    fell_back: int = 0  # answered unusably (or the window failed): the narrator reads them
+    narrated: int = 0  # answered with every part to the narrator: the model found no speech there (a "thought" in
+    # narration, an attribution clause), which is a correct answer, not a miss
+    unanswered: int = 0  # left out of the model's answer, even after the retry: the narrator reads them
     unknown_speakers: int = 0
     dropped_tags: int = 0
     failed_windows: int = 0
@@ -1242,6 +1245,8 @@ def annotate(chapters: list, lang: str, bible: Bible, runner: Runner, markup: mk
             stats.flagged += bool(flags)
             cm.spans = [x for x in cm.spans if x.block != b] + good_spans
             cm.marks = [x for x in cm.marks if x.block != b] + good_marks
+            if not good_spans and not good_marks and not any(s.speaker for s in spans):
+                stats.narrated += 1  # the model gave every part to the narrator on purpose
             if good_spans or good_marks:
                 stats.marked += 1
                 names = [by_name.get(s.speaker, "narrator") for s in good_spans if s.speaker] or ["narrator"]
@@ -1249,6 +1254,7 @@ def annotate(chapters: list, lang: str, bible: Bible, runner: Runner, markup: mk
                 recent_ctx.append(f"{original[:140]} -> {', '.join(dict.fromkeys(names))}")
         missing = [b for b, _ in w.blocks if b not in seen]
         stats.blocks += len(missing)  # paragraphs the model skipped: the narrator reads them
+        stats.unanswered += len(missing)
         for b, t in w.blocks:  # a paragraph with speech that the model left out is a place to look at
             if b in missing and DIALOGUE_START.search(t):
                 cm.review = [r for r in cm.review if r.get("b") != b] + [{"b": b, "code": "skipped"}]

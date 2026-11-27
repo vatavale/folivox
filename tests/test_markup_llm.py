@@ -199,6 +199,7 @@ def test_a_reply_that_stays_short_keeps_what_it_answered_and_reports_the_rest(tm
     assert {s.block for s in markup.chapters[0].spans} == {1}  # what it did answer is kept
     assert markup.chapters[0].review == [{"b": 2, "code": "skipped"}]  # the rest is on the review list
     assert stats.short_windows == 1 and stats.skipped == 1 and stats.failed_windows == 0
+    assert stats.unanswered == 1 and stats.narrated == 0  # a paragraph left out even after the retry is not narration
     # the short reply was not cached: the next run asks again, and a full answer marks the paragraph
     markup, stats = ml.annotate(CH, "ru", bible, ml.Runner(FakeLLM(), "fake-model", cache), markup)
     assert {s.block for s in markup.chapters[0].spans} == {1, 2} and markup.chapters[0].review == []
@@ -703,3 +704,51 @@ def test_consolidate_joins_names_in_full_but_not_through_a_shared_first_name():
     b.characters[1].aliases.append("Robert")  # now "Robert" is both of theirs: it points at neither
     ml.consolidate([], "en", b, ml.Runner(CastLLM([["Robert", "Robert Prentiss"]]), "m", ml.Cache(None)), max_look=0)
     assert len(b.characters) == 5
+
+
+class NarrationLLM(LLM):
+    """Answers a window as a careful model would: speech to its speaker, a "thought" in narration to nobody (every part
+    to the narrator), and leaves one paragraph out."""
+
+    name = "fake"
+
+    def complete(self, prompt, system=None, temperature=0.3):
+        return self.complete_json(prompt, system, temperature)
+
+    def complete_json(self, prompt, system=None, temperature=0.2):
+        blocks = []
+        for m in re.finditer(r"\[B(\d+)\]\n((?:  \d+\| .*\n?)+)", prompt):
+            text = m.group(2)
+            if "Come in" in text:
+                blocks.append({"b": int(m.group(1)), "who": {"1": 1}})
+            elif "thought no more" in text:
+                blocks.append({"b": int(m.group(1)), "who": {}})
+        return json.dumps({"blocks": blocks, "new_characters": [], "updates": []})
+
+
+NARRATION = [Chapter("One", [Block(BlockKind.PARAGRAPH, t) for t in (
+    '"Come in," said Ann.', "Ann thought no more of the matter.", '"Not now," said Ben.')])]
+
+
+def test_a_paragraph_answered_as_narration_is_not_counted_as_a_miss():
+    bible = ml.Bible("en", characters=[ml.Character("Ann", gender="f", lines=2, id=1),
+                                       ml.Character("Ben", gender="m", lines=1, id=2)])
+    markup, stats = ml.annotate(NARRATION, "en", bible, ml.Runner(NarrationLLM(), "m", ml.Cache(None)))
+    assert (stats.blocks, stats.marked, stats.narrated, stats.unanswered, stats.fell_back) == (3, 1, 1, 1, 0)
+
+
+def test_cli_summary_tells_narration_from_misses(tmp_path, monkeypatch):
+    from folivox import cli_markup
+    from folivox.cli import app
+
+    book = tmp_path / "b.txt"
+    book.write_text("One\n\n" + "\n\n".join(b.text for b in NARRATION[0].blocks) + "\n", encoding="utf-8")
+    bible = ml.Bible("en", characters=[ml.Character("Ann", gender="f", lines=2, id=1),
+                                       ml.Character("Ben", gender="m", lines=1, id=2)], done_windows=1, total_windows=1)
+    bible.save(ml.bible_path(book))
+    monkeypatch.setattr(cli_markup, "_llm", lambda provider, model: (NarrationLLM(), "fake-model"))
+    res = CliRunner().invoke(app, ["markup", "auto", str(book)])
+    assert res.exit_code == 0, res.output
+    out = " ".join(res.output.split())
+    assert "3 paragraphs that may hold speech: 1 marked, 1 answered as narration (no one speaks in them)" in out
+    assert "1 left out of the answers and 0 failed" in out
